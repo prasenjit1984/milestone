@@ -1,0 +1,1 @@
+ALTER TABLE "parents" ADD COLUMN "parent_pin_hash" text NOT NULL;

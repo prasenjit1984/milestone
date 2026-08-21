@@ -1,26 +1,146 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-math: var(--math);
+  --color-math-soft: var(--math-soft);
+  --color-ela: var(--ela);
+  --color-ela-soft: var(--ela-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-ink-faint: var(--ink-faint);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-public-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, monospace;
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
   }
 }
 
+:root {
+  --background: 72 16% 96%;
+  --foreground: 150 18% 13%;
+  --card: 0 0% 100%;
+  --card-foreground: 150 18% 13%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 150 18% 13%;
+  --primary: 217 43% 30%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 72 12% 91%;
+  --secondary-foreground: 150 18% 13%;
+  --muted: 72 12% 91%;
+  --muted-foreground: 150 8% 42%;
+  --accent: 217 40% 93%;
+  --accent-foreground: 217 43% 26%;
+  --destructive: 6 70% 46%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 72 10% 85%;
+  --input: 72 10% 85%;
+  --ring: 217 43% 30%;
+  --radius: 0.9rem;
+
+  --math: #1e7f72;
+  --math-soft: #e2f2ee;
+  --ela: #7c3f58;
+  --ela-soft: #f3e7ed;
+  --amber: #c17a1f;
+  --amber-soft: #f7ecd9;
+  --ink-faint: hsl(150 8% 55%);
+  color-scheme: light;
+}
+
+.dark {
+  --background: 150 10% 9%;
+  --foreground: 90 15% 93%;
+  --card: 150 10% 12%;
+  --card-foreground: 90 15% 93%;
+  --popover: 150 10% 12%;
+  --popover-foreground: 90 15% 93%;
+  --primary: 217 55% 74%;
+  --primary-foreground: 150 15% 12%;
+  --secondary: 150 8% 17%;
+  --secondary-foreground: 90 15% 93%;
+  --muted: 150 8% 17%;
+  --muted-foreground: 90 8% 68%;
+  --accent: 217 30% 20%;
+  --accent-foreground: 217 55% 82%;
+  --destructive: 6 60% 55%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 150 8% 22%;
+  --input: 150 8% 22%;
+  --ring: 217 55% 74%;
+
+  --math: #6fc7b6;
+  --math-soft: #1c3430;
+  --ela: #d99cb6;
+  --ela-soft: #3a2530;
+  --amber: #e0ab5c;
+  --amber-soft: #3a2f18;
+  --ink-faint: hsl(90 8% 60%);
+  color-scheme: dark;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
