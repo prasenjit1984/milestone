@@ -8,6 +8,7 @@ import { OverviewTab, type ChildOverview } from "@/components/parent/overview-ta
 import { ContentTab, type OwnMathItem } from "@/components/parent/content-tab";
 import { EvaluationsTab, type EvaluationRow } from "@/components/parent/evaluations-tab";
 import { RewardsTab, type RewardSettingsData } from "@/components/parent/rewards-tab";
+import { ProfilesTab } from "@/components/parent/profiles-tab";
 
 export function DashboardShell({
   perChild,
@@ -50,6 +51,7 @@ export function DashboardShell({
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="evaluations">Evaluations</TabsTrigger>
             <TabsTrigger value="rewards">Rewards</TabsTrigger>
+            <TabsTrigger value="profiles">Profiles</TabsTrigger>
           </TabsList>
           <TabsContent value="overview">
             <OverviewTab perChild={perChild} />
@@ -62,6 +64,9 @@ export function DashboardShell({
           </TabsContent>
           <TabsContent value="rewards">
             <RewardsTab settings={rewardSettings} perChild={perChild} />
+          </TabsContent>
+          <TabsContent value="profiles">
+            <ProfilesTab childList={children} />
           </TabsContent>
         </Tabs>
       </div>

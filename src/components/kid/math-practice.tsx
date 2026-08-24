@@ -168,99 +168,114 @@ function MathSetupScreen({
     setTopic(MIXED);
   }
 
+  const selectedTopicLabel = topic === MIXED ? "Mixed practice" : (topics.find((t) => t.id === topic)?.label ?? "Mixed practice");
+
   return (
     <div className="flex min-h-dvh flex-col">
       <TopBar title="Math" subtitle={`${childName} · Grade ${childGrade}`} backHref={backHref} />
-      <div className="mx-auto flex w-full max-w-xl flex-col gap-8 px-5 py-8 sm:px-8">
-        <div>
-          <p className="mb-3 text-sm font-medium text-muted-foreground">Pick a domain</p>
-          <div className="grid grid-cols-2 gap-3">
-            {DOMAINS.map((d) => {
-              const level = levelFor(d);
-              return (
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-5 py-6 sm:px-8 lg:flex-row lg:items-start lg:gap-8 lg:py-8">
+        {/* Sidebar: domain, then that domain's topics once one is picked */}
+        <div className="flex flex-col gap-6 lg:w-64 lg:shrink-0">
+          <div>
+            <p className="mb-3 text-sm font-medium text-muted-foreground">Domain</p>
+            <div className="flex flex-col gap-2">
+              {DOMAINS.map((d) => {
+                const level = levelFor(d);
+                return (
+                  <button
+                    key={d}
+                    onClick={() => pickDomain(d)}
+                    className={`w-full rounded-2xl border p-3 text-left transition ${
+                      domain === d ? "border-math bg-math-soft" : "border-border bg-card hover:bg-secondary"
+                    }`}
+                  >
+                    <p className={`font-display text-sm font-semibold ${domain === d ? "text-math" : ""}`}>{domainLabels[d]}</p>
+                    <div className="mt-1.5 flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <span key={i} className={`h-1.5 w-3.5 rounded-full ${i <= level ? "bg-math" : "bg-secondary"}`} />
+                      ))}
+                      <span className="ml-1 font-mono-num text-[11px] text-muted-foreground">Lvl {level}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {topics.length > 0 && (
+            <div>
+              <p className="mb-3 text-sm font-medium text-muted-foreground">Topic</p>
+              <div className="flex flex-col gap-1.5">
                 <button
-                  key={d}
-                  onClick={() => pickDomain(d)}
-                  className={`rounded-2xl border p-4 text-left transition ${
-                    domain === d ? "border-math bg-math-soft" : "border-border bg-card hover:bg-secondary"
+                  onClick={() => setTopic(MIXED)}
+                  className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${
+                    topic === MIXED ? "border-math bg-math text-white" : "border-border bg-card text-foreground hover:bg-secondary"
                   }`}
                 >
-                  <p className={`font-display text-base font-semibold ${domain === d ? "text-math" : ""}`}>{domainLabels[d]}</p>
-                  <div className="mt-2 flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <span key={i} className={`h-1.5 w-4 rounded-full ${i <= level ? "bg-math" : "bg-secondary"}`} />
-                    ))}
-                    <span className="ml-1 font-mono-num text-xs text-muted-foreground">Lvl {level}</span>
-                  </div>
+                  Mixed practice
                 </button>
-              );
-            })}
-          </div>
+                {topics.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setTopic(t.id)}
+                    className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${
+                      topic === t.id ? "border-math bg-math text-white" : "border-border bg-card text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {topics.length > 0 && (
+        {/* Main: selection summary, duration, start */}
+        <div className="flex flex-1 flex-col gap-8">
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ready to practice</p>
+            <p className="mt-1 font-display text-lg font-semibold text-math">
+              {domainLabels[domain]} · {selectedTopicLabel}
+            </p>
+          </div>
+
           <div>
-            <p className="mb-3 text-sm font-medium text-muted-foreground">Pick a topic</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setTopic(MIXED)}
-                className={`rounded-full border px-4 py-2 text-sm transition ${
-                  topic === MIXED ? "border-math bg-math text-white" : "border-border bg-card text-foreground hover:bg-secondary"
-                }`}
-              >
-                Mixed practice
-              </button>
-              {topics.map((t) => (
+            <p className="mb-3 text-sm font-medium text-muted-foreground">How long?</p>
+            <div className="mb-3 inline-flex rounded-full border border-border bg-card p-1">
+              {(["time", "count"] as SessionMode[]).map((m) => (
                 <button
-                  key={t.id}
-                  onClick={() => setTopic(t.id)}
-                  className={`rounded-full border px-4 py-2 text-sm transition ${
-                    topic === t.id ? "border-math bg-math text-white" : "border-border bg-card text-foreground hover:bg-secondary"
+                  key={m}
+                  onClick={() => {
+                    setMode(m);
+                    setTarget(10);
+                  }}
+                  className={`rounded-full px-4 py-1.5 text-sm transition ${
+                    mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                   }`}
                 >
-                  {t.label}
+                  {m === "time" ? "By time" : "By question count"}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {options.map((o) => (
+                <button
+                  key={o}
+                  onClick={() => setTarget(o)}
+                  className={`rounded-full border px-4 py-2 font-mono-num text-sm transition ${
+                    target === o ? "border-math bg-math text-white" : "border-border bg-card text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  {o} {mode === "time" ? "min" : "qs"}
                 </button>
               ))}
             </div>
           </div>
-        )}
 
-        <div>
-          <p className="mb-3 text-sm font-medium text-muted-foreground">How long?</p>
-          <div className="mb-3 inline-flex rounded-full border border-border bg-card p-1">
-            {(["time", "count"] as SessionMode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => {
-                  setMode(m);
-                  setTarget(10);
-                }}
-                className={`rounded-full px-4 py-1.5 text-sm transition ${
-                  mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {m === "time" ? "By time" : "By question count"}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {options.map((o) => (
-              <button
-                key={o}
-                onClick={() => setTarget(o)}
-                className={`rounded-full border px-4 py-2 font-mono-num text-sm transition ${
-                  target === o ? "border-math bg-math text-white" : "border-border bg-card text-foreground hover:bg-secondary"
-                }`}
-              >
-                {o} {mode === "time" ? "min" : "qs"}
-              </button>
-            ))}
-          </div>
+          <Button size="lg" className="w-full max-w-sm bg-math text-white hover:bg-math/90" onClick={() => onStart(domain, mode, target, topic)}>
+            Start practicing
+          </Button>
         </div>
-
-        <Button size="lg" className="w-full bg-math text-white hover:bg-math/90" onClick={() => onStart(domain, mode, target, topic)}>
-          Start practicing
-        </Button>
       </div>
     </div>
   );

@@ -24,10 +24,19 @@ const PUBLIC_ONLY_ROUTES = ["/login"];
 export default async function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
+  // style-src intentionally allows 'unsafe-inline' unconditionally (not
+  // nonce-gated like script-src): Radix UI primitives (Select, Popover,
+  // etc.) both set inline style="" attributes for popper positioning AND
+  // inject their own <style> elements for scroll-locking, neither of which
+  // carry our nonce. Per the CSP spec a nonce/hash on a directive causes
+  // browsers to ignore 'unsafe-inline' for that directive entirely, so
+  // pairing nonce + 'unsafe-inline' here would silently keep blocking both.
+  // CSS injection is a much smaller attack surface than script injection,
+  // which is why script-src keeps its strict nonce + 'strict-dynamic'.
   const cspHeader = `
     default-src 'self';
     script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
-    style-src 'self' ${isDev ? "'unsafe-inline'" : `'nonce-${nonce}'`};
+    style-src 'self' 'unsafe-inline';
     img-src 'self' blob: data:;
     font-src 'self';
     connect-src 'self';
