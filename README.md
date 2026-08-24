@@ -6,6 +6,8 @@ covering Math and Reading & Writing, tagged to Georgia's official K-12 Standards
 answers like a patient teacher would. One parent login, no public sign-up, two
 independently-tracked kid profiles underneath it.
 
+
+
 Full functional and business requirements live in [`docs/`](./docs/) — start with
 [`docs/requirements/product-requirements.md`](./docs/requirements/product-requirements.md).
 This README covers the technical side: architecture, stack, and how to run it.
