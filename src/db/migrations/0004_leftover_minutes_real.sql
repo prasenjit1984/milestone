@@ -1,0 +1,1 @@
+ALTER TABLE "children" ALTER COLUMN "leftover_minutes" SET DATA TYPE real;

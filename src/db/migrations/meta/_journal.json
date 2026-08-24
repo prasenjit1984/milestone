@@ -15,6 +15,13 @@
       "when": 1787334025519,
       "tag": "0001_parent_pin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787607353809,
+      "tag": "0004_leftover_minutes_real",
+      "breakpoints": true
     }
   ]
 }

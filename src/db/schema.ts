@@ -49,7 +49,7 @@ export const children = pgTable("children", {
   grade: smallint("grade").notNull(),
   emoji: text("emoji").notNull().default("🌟"),
   colorVar: text("color_var").notNull().default("--math"),
-  leftoverMinutes: integer("leftover_minutes").notNull().default(0),
+  leftoverMinutes: real("leftover_minutes").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
