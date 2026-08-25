@@ -24,7 +24,7 @@ This README covers the technical side: architecture, stack, and how to run it.
 | ORM / migrations | [Drizzle ORM](https://orm.drizzle.team) + a hand-maintained SQL migration runner | needed to support a hand-written Row-Level Security migration — see decisions doc |
 | Data access control | Postgres **Row-Level Security**, enforced via a dedicated non-superuser `app_user` role | see [`docs/architecture/auth-and-security.md`](./docs/architecture/auth-and-security.md) |
 | Auth | [`iron-session`](https://github.com/vvo/iron-session) (encrypted cookie) + `bcryptjs` | one parent account, no public sign-up; a second short PIN gates Parent Mode |
-| AI evaluation | [Claude Haiku](https://www.anthropic.com) via `@anthropic-ai/sdk`, server-side only | grades written responses, writes the weekly parent summary — *not yet wired up, see Status below* |
+| AI evaluation | [Claude Haiku](https://www.anthropic.com) via `@anthropic-ai/sdk`, server-side only | grades written responses (`src/lib/ai/evaluate.ts`) and writes the weekly parent summary (`src/lib/ai/weekly-read.ts`) — degrades gracefully to an honest "not configured yet" state if `ANTHROPIC_API_KEY` is unset, never a faked grade |
 | PWA | `app/manifest.ts`, a hand-rolled `public/sw.js` service worker, generated app icons | installable on iPad/laptop |
 | Hosting (target) | [Vercel](https://vercel.com) | free tier, automatic HTTPS, one-command deploy |
 
@@ -144,19 +144,46 @@ pnpm db:studio        # drizzle-kit's DB browser
 
 ## Project status
 
-Built and verified end-to-end (real database, real browser, real production
-build): project scaffold, Tailwind v4 + vendored shadcn/ui, PWA manifest/icons/
-service worker, the full Postgres schema, Row-Level Security (with the two-role
-design required to make it actually enforceable), and parent authentication —
-login, session, the Parent Mode PIN gate, logout, and IDOR protection on
-child-scoped routes.
+Live in production at [milestone-woad-beta.vercel.app](https://milestone-woad-beta.vercel.app),
+backed by Neon Postgres and deployed from this repo's `main` branch via Vercel's
+GitHub integration. Every area of the product-requirements spec is built and
+has been exercised end-to-end against the real production database and a real
+browser:
 
-Not yet built: the kid-facing math/reading practice screens (ported from an
-earlier approved prototype but not yet wired to this real backend), the Parent
-Mode dashboard (content authoring, progress charts, AI weekly summary), the
-rewards module, and the Claude Haiku AI evaluation module itself. `/kid/[childId]`
-and `/parent` currently exist only as placeholders that prove the auth chain
-works.
+- **Foundation** — project scaffold, Tailwind v4 + vendored shadcn/ui, PWA
+  manifest/icons/service worker, the full Postgres schema, Row-Level Security
+  (two-role design), and parent authentication (login, session, the Parent
+  Mode PIN gate, logout, IDOR protection on child-scoped routes).
+- **Kid-facing math practice** (`src/components/kid/math-practice.tsx`) —
+  domain/topic sidebar picker (Numerical Reasoning, Patterning & Algebraic
+  Reasoning, Measurement & Data Reasoning, Geometric & Spatial Reasoning),
+  streak-based adaptive difficulty per domain, and a session-length control
+  that supports three modes: by time (5–60 min), by question count (5–30,
+  5-question steps), and a count-mode session with an optional time-boxed
+  efficiency goal — a draggable clock dial (1–60 min) sets a target, and
+  going over it flips the on-screen clock to a red count-up instead of
+  ending the session early.
+- **Kid-facing reading practice** (`src/components/kid/reading-practice.tsx`) —
+  a topic-picker sidebar (fiction, science, geography, history,
+  social-studies) mirroring the math domain picker, a widened responsive
+  2-column passage layout that fits most passages on screen without
+  scrolling, multiple-choice comprehension checks, and AI-graded summary/
+  opinion writing prompts.
+- **Parent Mode dashboard** (`src/components/parent/`) — Overview (time
+  practiced, accuracy by domain, timed-attempt goals, AI weekly read per
+  kid), Content (add/edit/retire custom math questions and reading
+  passages), Evaluations (per-response AI writing feedback, browsable by
+  kid and session), Rewards (minutes-per-point / points-per-dollar settings,
+  redeem flow), and Profiles (add/edit kid name, grade, avatar).
+- **Rewards module** (`src/lib/actions/rewards.ts`) — points tied to
+  practice time, parent-configurable rate, on/off switch, append-only ledger,
+  and a kid-facing running-total view.
+- **AI evaluation** (`src/lib/ai/evaluate.ts`, `src/lib/ai/weekly-read.ts`) —
+  Claude Haiku grades written responses and writes the weekly per-kid
+  summary shown in Overview; degrades gracefully to an honest
+  "not configured yet" state if `ANTHROPIC_API_KEY` is unset, rather than
+  faking a grade.
 
 See [`docs/requirements/product-requirements.md`](./docs/requirements/product-requirements.md)
-for the full spec these still need to satisfy.
+for the full spec, and [`docs/architecture/data-model.md`](./docs/architecture/data-model.md)
+for the current table-by-table schema.

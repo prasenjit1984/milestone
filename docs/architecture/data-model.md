@@ -54,15 +54,15 @@ the profile picker once the parent's session is trusted.
 | `grade` | smallint | |
 | `emoji` | text | default `🌟` — the profile-card avatar |
 | `color_var` | text | default `--math` — which theme accent color this kid's UI uses |
-| `leftover_minutes` | integer | default 0 — sub-30-minute practice time not yet converted to a reward point |
+| `leftover_minutes` | real | default 0 — sub-30-minute practice time not yet converted to a reward point |
 | `created_at` | timestamptz | |
 
 ### `math_items`
 
 The math content bank. `parent_id IS NULL` rows are the shared, Georgia-AKS-tagged
 seed bank visible to every family; a non-null `parent_id` is that family's own
-custom question, added via Parent Mode's Add-a-Question form (product requirements
-§4.1 — content authoring UI is not yet built).
+custom question, added via Parent Mode's Content tab
+(`src/components/parent/content-tab.tsx`, product requirements §4.1).
 
 | Column | Type | Notes |
 |---|---|---|
@@ -90,14 +90,15 @@ Same `parent_id` sharing convention as `math_items`.
 | `grade` | smallint | |
 | `title` | text | |
 | `kind` | text | `story` \| `informational` |
+| `topic` | text, nullable | `fiction` \| `science` \| `geography` \| `history` \| `social-studies` — nullable so older rows never need a backfill; the kid-facing topic picker just skips any passage without one |
 | `body` | text | passage text |
 | `words` | integer | word count, drives the grade-progression table |
 | `mc` | jsonb `ReadingMcQuestion[]` | `{ prompt, choices, answerIndex }[]` — comprehension check |
 | `writing` | jsonb `ReadingWritingPrompt[]` | `{ type: "summary" \| "opinion", prompt, starter, exemplar, keywords }[]` |
 | `created_at` | timestamptz | |
 
-`exemplar` and `keywords` on each writing prompt exist to give the AI evaluation
-module (once built) a grounded reference answer and rough on-topic signal, rather
+`exemplar` and `keywords` on each writing prompt give the AI evaluation module
+(`src/lib/ai/evaluate.ts`) a grounded reference answer and rough on-topic signal, rather
 than grading from the prompt text alone.
 
 ### `domain_mastery`
@@ -168,6 +169,7 @@ dashboard.
 | `subject`, `domain` | text | |
 | `mode` | text | `time` \| `count` — which session-length control was used (product requirements §5) |
 | `target` | integer | minutes or question count |
+| `time_limit_min` | integer, nullable | optional "finish N questions within X minutes" efficiency goal for `count`-mode sessions only; always null for `time`-mode sessions, and null for `count`-mode sessions where the timer toggle was left off |
 | `minutes_spent` | real | |
 | `correct` / `attempted` | integer | |
 | `at` | timestamptz | |

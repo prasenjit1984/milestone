@@ -81,8 +81,11 @@ Both kids draw from the same leveled passage library — the grade-2 reader star
 the top of the table, the grade-4 reader starts partway down, and each climbs it
 independently over the school year.
 
-The seed content bank currently includes 2 passages (one grade-2 story, one
-grade-4 informational piece), each with 2 comprehension questions and 2 writing
-prompts (summary + opinion). See
+Passages are also organized by topic — fiction, science, geography, history,
+social-studies — via the `reading_passages.topic` column, and the kid-facing
+reading screen picks a topic first (a sidebar mirroring the math domain picker)
+before picking a passage within it. The seed content bank currently includes 20
+passages: 2 per topic per grade, across grades 2 and 4, each with 2 comprehension
+questions and 2 writing prompts (summary + opinion). See
 [`docs/architecture/data-model.md`](../architecture/data-model.md#reading_passages) for the
 `reading_passages` table shape.

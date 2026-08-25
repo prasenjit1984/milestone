@@ -58,6 +58,10 @@ Requirements:
 - Every reading passage ends with a short multiple-choice comprehension check *and*
   an elaborated written response (a summary or an opinion task) — writing is the
   point of the reading session, not an occasional extra, from grade 2 up.
+- Reading passages are organized by topic — fiction, science, geography, history,
+  and social studies — and a kid picks a topic from a sidebar before picking a
+  passage within it, so practice can range across subject areas rather than being
+  one undifferentiated pool. Each topic should have multiple passages per grade.
 - Passage length, writing-task complexity, and comprehension-check count scale with
   grade (see the progression table in `curriculum-standards.md`).
 - Foundations (phonics, oral reading fluency) is explicitly out of scope for a
@@ -119,6 +123,15 @@ Whichever a kid picks last becomes their remembered default next time, **per kid
 per subject** — a grade-2 kid's quick 6-question math warm-up and a grade-4 kid's
 steady 15-minute block are two entirely separate settings. Reading defaults to
 time-based mode so a writing task never feels rushed against a count set for math.
+
+**By-question-count sessions can also carry an optional time-boxed efficiency
+goal**, distinct from by-time mode: the kid (via a draggable clock-dial control,
+1–60 min max) sets a target for finishing the whole question set, so the point is
+to measure how efficiently they finish a fixed amount of work — not to cut the
+session off early. The session always ends when the question count is reached,
+never when the clock runs out; going over the time goal flips the on-screen clock
+to a red count-up instead of stopping anything, and the end screen reports the
+actual time taken against the goal. This is currently math-only.
 
 ## 6. AI evaluation module
 
