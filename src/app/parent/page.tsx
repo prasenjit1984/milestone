@@ -33,6 +33,7 @@ export default async function ParentDashboardPage() {
           domain: s.domain,
           mode: s.mode,
           target: s.target,
+          timeLimitMin: s.timeLimitMin,
           minutesSpent: s.minutesSpent,
           correct: s.correct,
           attempted: s.attempted,

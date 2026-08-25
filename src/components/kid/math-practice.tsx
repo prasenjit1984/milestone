@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/top-bar";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { ClockDial } from "@/components/ui/clock-dial";
 import { domainLabels, topicLabel, topicsFor } from "@/lib/domains";
 import { finishMathSession } from "@/lib/actions/math";
 import type { MathItem } from "@/lib/data/practice";
@@ -36,7 +38,7 @@ function pickNext(pool: MathItem[], level: number, usedIds: Set<string>): MathIt
 
 type Screen =
   | { kind: "setup" }
-  | { kind: "session"; domain: MathDomain; topic: string; mode: SessionMode; target: number }
+  | { kind: "session"; domain: MathDomain; topic: string; mode: SessionMode; target: number; timeLimitMin: number | null }
   | {
       kind: "results";
       correct: number;
@@ -47,6 +49,7 @@ type Screen =
       domain: MathDomain;
       mode: SessionMode;
       target: number;
+      timeLimitMin: number | null;
       minutesSpent: number;
     };
 
@@ -80,7 +83,7 @@ export function MathPractice({
         pool={pool}
         levelFor={levelFor}
         backHref={backHref}
-        onStart={(domain, mode, target, topic) => setScreen({ kind: "session", domain, topic, mode, target })}
+        onStart={(domain, mode, target, topic, timeLimitMin) => setScreen({ kind: "session", domain, topic, mode, target, timeLimitMin })}
       />
     );
   }
@@ -97,6 +100,7 @@ export function MathPractice({
         topic={screen.topic}
         mode={screen.mode}
         target={screen.target}
+        timeLimitMin={screen.timeLimitMin}
         onBack={() => setScreen({ kind: "setup" })}
         onFinish={(summary) =>
           setScreen({
@@ -109,6 +113,7 @@ export function MathPractice({
             domain: screen.domain,
             mode: screen.mode,
             target: screen.target,
+            timeLimitMin: screen.timeLimitMin,
             minutesSpent: summary.minutesSpent,
           })
         }
@@ -120,7 +125,10 @@ export function MathPractice({
   const message = pct >= 80 ? "Awesome work!" : pct >= 60 ? "Nice job!" : "Good effort!";
   const levelNote =
     screen.newLevel !== screen.startLevel ? `${domainLabels[screen.domain]} moved from level ${screen.startLevel} to ${screen.newLevel}` : undefined;
-  const wentOvertime = screen.mode === "time" && screen.minutesSpent > screen.target;
+  const timedGoal = screen.mode === "time" ? screen.target : screen.timeLimitMin;
+  const hasTimedGoal = timedGoal != null;
+  const wentOvertime = hasTimedGoal && screen.minutesSpent > timedGoal;
+  const overBy = hasTimedGoal ? Math.round((screen.minutesSpent - timedGoal) * 10) / 10 : 0;
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-8 px-6 py-16 text-center">
@@ -153,16 +161,20 @@ export function MathPractice({
           {levelNote}
         </div>
       )}
-      {screen.mode === "time" && (
+      {hasTimedGoal && (
         <div
           className={`flex max-w-sm items-center gap-2 rounded-full border px-4 py-2 text-sm ${
             wentOvertime ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-border bg-card"
           }`}
         >
           {wentOvertime && <AlarmClock className="h-4 w-4 shrink-0" />}
-          {wentOvertime
-            ? `Went ${Math.round((screen.minutesSpent - screen.target) * 10) / 10} min over — ${screen.minutesSpent} min total`
-            : `Finished in ${screen.minutesSpent} min (target was ${screen.target})`}
+          {screen.mode === "time"
+            ? wentOvertime
+              ? `Went ${overBy} min over — ${screen.minutesSpent} min total`
+              : `Finished in ${screen.minutesSpent} min (target was ${screen.target})`
+            : wentOvertime
+              ? `Took ${screen.minutesSpent} min — ${overBy} min over your ${timedGoal}-min goal`
+              : `Finished all ${screen.target} questions in ${screen.minutesSpent} min — inside your ${timedGoal}-min goal`}
         </div>
       )}
       <div className="flex w-full max-w-sm flex-col gap-3">
@@ -190,12 +202,14 @@ function MathSetupScreen({
   pool: MathItem[];
   levelFor: (domain: MathDomain) => number;
   backHref: string;
-  onStart: (domain: MathDomain, mode: SessionMode, target: number, topic: string) => void;
+  onStart: (domain: MathDomain, mode: SessionMode, target: number, topic: string, timeLimitMin: number | null) => void;
 }) {
   const [domain, setDomain] = useState<MathDomain>("NR");
   const [topic, setTopic] = useState<string>(MIXED);
   const [mode, setMode] = useState<SessionMode>("time");
   const [target, setTarget] = useState(10);
+  const [countTimerOn, setCountTimerOn] = useState(false);
+  const [countTimerMin, setCountTimerMin] = useState(15);
 
   const options = mode === "time" ? TIME_OPTIONS : COUNT_OPTIONS;
   const topics = useMemo(() => topicsFor(pool, childGrade, domain), [pool, childGrade, domain]);
@@ -306,9 +320,33 @@ function MathSetupScreen({
                 ))}
               </SelectContent>
             </Select>
+
+            {mode === "count" && (
+              <div className="mt-4 max-w-sm">
+                <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">Timer</p>
+                    <p className="text-xs text-muted-foreground">Try to finish within a set time</p>
+                  </div>
+                  <Switch checked={countTimerOn} onCheckedChange={setCountTimerOn} />
+                </div>
+                {countTimerOn && (
+                  <div className="mt-3 flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-5">
+                    <ClockDial value={countTimerMin} onChange={setCountTimerMin} min={1} max={60} />
+                    <p className="text-center text-sm text-muted-foreground">
+                      Finish {target} questions in {countTimerMin} min
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <Button size="lg" className="w-full max-w-sm bg-math text-white hover:bg-math/90" onClick={() => onStart(domain, mode, target, topic)}>
+          <Button
+            size="lg"
+            className="w-full max-w-sm bg-math text-white hover:bg-math/90"
+            onClick={() => onStart(domain, mode, target, topic, mode === "count" && countTimerOn ? countTimerMin : null)}
+          >
             Start practicing
           </Button>
         </div>
@@ -327,6 +365,7 @@ function MathSessionScreen({
   topic,
   mode,
   target,
+  timeLimitMin,
   onBack,
   onFinish,
 }: {
@@ -339,6 +378,7 @@ function MathSessionScreen({
   topic: string;
   mode: SessionMode;
   target: number;
+  timeLimitMin: number | null;
   onBack: () => void;
   onFinish: (summary: {
     correct: number;
@@ -374,13 +414,19 @@ function MathSessionScreen({
     return () => clearInterval(t);
   }, []);
 
-  const remaining = mode === "time" ? Math.max(0, target * 60 - elapsedSec) : null;
-  const timeUp = mode === "time" && remaining === 0;
+  // A timer applies either because the session is pure time-mode (target IS
+  // the minutes) or because count-mode has an optional time goal attached
+  // (timeLimitMin) — "finish N questions within X minutes" for an efficiency
+  // read, without that goal ever forcing the session to end early.
+  const hasTimer = mode === "time" || timeLimitMin != null;
+  const timerTargetSec = mode === "time" ? target * 60 : (timeLimitMin ?? 0) * 60;
+  const remaining = hasTimer ? Math.max(0, timerTargetSec - elapsedSec) : null;
+  const timeUp = hasTimer && remaining === 0;
   // Once the target time is reached, practice keeps going (elapsedSec keeps
   // ticking, so the real total is still recorded when the kid finishes) —
   // we just flip the on-screen clock into a red "overtime" count-up and
   // flash a one-time heads-up banner, instead of forcing the session to end.
-  const overtimeSec = mode === "time" ? Math.max(0, elapsedSec - target * 60) : 0;
+  const overtimeSec = hasTimer ? Math.max(0, elapsedSec - timerTargetSec) : 0;
 
   useEffect(() => {
     if (timeUp && !wasTimeUpRef.current) {
@@ -405,6 +451,7 @@ function MathSessionScreen({
         topic,
         mode,
         target,
+        timeLimitMin: mode === "count" ? timeLimitMin : null,
         correct: finalCorrect,
         attempted: finalAttempted,
         newLevel,
@@ -442,12 +489,9 @@ function MathSessionScreen({
     setSelected(null);
   }
 
+  const clockPart = hasTimer ? (timeUp ? `+${formatClock(overtimeSec)}` : `${formatClock(remaining ?? 0)} left`) : null;
   const progressLabel =
-    mode === "time"
-      ? timeUp
-        ? `+${formatClock(overtimeSec)}`
-        : `${formatClock(remaining ?? 0)} left`
-      : `${attempted}/${target} questions`;
+    mode === "time" ? clockPart : timeLimitMin != null ? `${attempted}/${target} questions · ${clockPart}` : `${attempted}/${target} questions`;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -458,10 +502,10 @@ function MathSessionScreen({
         right={
           <span
             className={`flex items-center gap-1 font-mono-num text-sm ${
-              mode === "time" && timeUp ? "font-semibold text-destructive" : "text-muted-foreground"
+              hasTimer && timeUp ? "font-semibold text-destructive" : "text-muted-foreground"
             }`}
           >
-            {mode === "time" && timeUp && !submitting && <AlarmClock className="h-3.5 w-3.5" />}
+            {hasTimer && timeUp && !submitting && <AlarmClock className="h-3.5 w-3.5" />}
             {submitting ? "Saving…" : progressLabel}
           </span>
         }
@@ -518,7 +562,7 @@ function MathSessionScreen({
             <Button size="lg" className="w-full bg-math text-white hover:bg-math/90" disabled={submitting} onClick={next}>
               {ending ? "See how it went" : "Next question"}
             </Button>
-            {mode === "time" && timeUp && !ending && (
+            {hasTimer && timeUp && !ending && (
               <Button
                 size="sm"
                 variant="ghost"

@@ -13,6 +13,7 @@ export interface ChildOverview {
     domain: string;
     mode: string;
     target: number;
+    timeLimitMin: number | null;
     minutesSpent: number;
     correct: number;
     attempted: number;
@@ -53,7 +54,7 @@ export function OverviewTab({ perChild }: { perChild: ChildOverview[] }) {
   const sessionCount = current.sessionLog.filter((s) => days.some((d) => d.key === s.at.slice(0, 10))).length;
   const domains = current.mastery.filter((m) => m.attempted > 0);
   const timedAttempts = [...current.sessionLog]
-    .filter((s) => s.mode === "time")
+    .filter((s) => s.mode === "time" || s.timeLimitMin != null)
     .sort((a, b) => b.at.localeCompare(a.at))
     .slice(0, 8);
 
@@ -102,7 +103,7 @@ export function OverviewTab({ perChild }: { perChild: ChildOverview[] }) {
             <thead>
               <tr className="border-b border-border bg-secondary/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-2 font-medium">Domain</th>
-                <th className="px-4 py-2 font-medium">Target</th>
+                <th className="px-4 py-2 font-medium">Goal</th>
                 <th className="px-4 py-2 font-medium">Actual time</th>
                 <th className="px-4 py-2 font-medium">Date</th>
               </tr>
@@ -116,16 +117,18 @@ export function OverviewTab({ perChild }: { perChild: ChildOverview[] }) {
                 </tr>
               )}
               {timedAttempts.map((s) => {
-                const overtime = s.minutesSpent > s.target;
+                const goalMin = s.mode === "time" ? s.target : (s.timeLimitMin ?? 0);
+                const overtime = s.minutesSpent > goalMin;
+                const goalLabel = s.mode === "time" ? `${s.target} min` : `${s.target} Qs in ${s.timeLimitMin} min`;
                 return (
                   <tr key={s.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-2.5">{labelFor(s.subject as "math" | "reading", s.domain)}</td>
-                    <td className="px-4 py-2.5 font-mono-num text-muted-foreground">{s.target} min</td>
+                    <td className="px-4 py-2.5 font-mono-num text-muted-foreground">{goalLabel}</td>
                     <td className={`px-4 py-2.5 font-mono-num ${overtime ? "font-semibold text-destructive" : ""}`}>
                       <span className="inline-flex items-center gap-1">
                         {overtime && <AlarmClock className="h-3.5 w-3.5" />}
                         {s.minutesSpent} min
-                        {overtime && ` (+${Math.round((s.minutesSpent - s.target) * 10) / 10})`}
+                        {overtime && ` (+${Math.round((s.minutesSpent - goalMin) * 10) / 10})`}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{new Date(s.at).toLocaleDateString()}</td>

@@ -197,6 +197,10 @@ export const sessionLog = pgTable("session_log", {
   domain: text("domain").notNull(),
   mode: text("mode").notNull(), // 'time' | 'count'
   target: integer("target").notNull(),
+  // Optional "finish N questions within X minutes" goal for count-mode
+  // sessions only (null for time-mode, and null for count-mode sessions
+  // where the timer toggle was left off).
+  timeLimitMin: integer("time_limit_min"),
   minutesSpent: real("minutes_spent").notNull(),
   correct: integer("correct").notNull(),
   attempted: integer("attempted").notNull(),
