@@ -24,5 +24,10 @@
     the PDF-to-draft-content pipeline: Drive import, chunking/embedding via
     `pgvector` on Neon, AI generation, and the parent review queue.
 
+- **Setup** — one-time configuration walkthroughs for optional integrations.
+  - [`setup/google-drive-picker-and-voyage.md`](./setup/google-drive-picker-and-voyage.md) —
+    provisioning the Google Cloud OAuth client/API key and Voyage AI API key
+    the PDF import feature (Stage 2 of the RAG pipeline) needs.
+
 For setup instructions, the tech stack summary, and current project status, see the
 [repo root README](../README.md).
