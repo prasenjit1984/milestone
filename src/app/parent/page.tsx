@@ -31,6 +31,8 @@ export default async function ParentDashboardPage() {
           id: s.id,
           subject: s.subject,
           domain: s.domain,
+          mode: s.mode,
+          target: s.target,
           minutesSpent: s.minutesSpent,
           correct: s.correct,
           attempted: s.attempted,

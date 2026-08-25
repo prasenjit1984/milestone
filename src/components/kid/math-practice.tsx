@@ -4,18 +4,28 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/top-bar";
 import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { domainLabels, topicLabel, topicsFor } from "@/lib/domains";
 import { finishMathSession } from "@/lib/actions/math";
 import type { MathItem } from "@/lib/data/practice";
-import { Check, X, PartyPopper, TrendingUp, TrendingDown } from "lucide-react";
+import { Check, X, PartyPopper, TrendingUp, TrendingDown, AlarmClock } from "lucide-react";
 
 type MathDomain = "NR" | "PAR" | "MDR" | "GSR";
 type SessionMode = "time" | "count";
 
 const DOMAINS: MathDomain[] = ["NR", "PAR", "MDR", "GSR"];
-const TIME_OPTIONS = [5, 10, 15, 20];
-const COUNT_OPTIONS = [6, 10, 15, 20];
+// 5-minute steps up to an hour, and 5-question steps up to 30 — dropdowns
+// rather than a row of pills since there are too many options to lay out
+// as buttons.
+const TIME_OPTIONS = Array.from({ length: 12 }, (_, i) => (i + 1) * 5); // 5..60
+const COUNT_OPTIONS = Array.from({ length: 6 }, (_, i) => (i + 1) * 5); // 5..30
 const MIXED = "mixed";
+
+function formatClock(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 function pickNext(pool: MathItem[], level: number, usedIds: Set<string>): MathItem {
   const fresh = pool.filter((i) => !usedIds.has(i.id));
@@ -27,7 +37,18 @@ function pickNext(pool: MathItem[], level: number, usedIds: Set<string>): MathIt
 type Screen =
   | { kind: "setup" }
   | { kind: "session"; domain: MathDomain; topic: string; mode: SessionMode; target: number }
-  | { kind: "results"; correct: number; attempted: number; pointsEarned: number; startLevel: number; newLevel: number; domain: MathDomain };
+  | {
+      kind: "results";
+      correct: number;
+      attempted: number;
+      pointsEarned: number;
+      startLevel: number;
+      newLevel: number;
+      domain: MathDomain;
+      mode: SessionMode;
+      target: number;
+      minutesSpent: number;
+    };
 
 export function MathPractice({
   childId,
@@ -86,6 +107,9 @@ export function MathPractice({
             startLevel: summary.startLevel,
             newLevel: summary.newLevel,
             domain: screen.domain,
+            mode: screen.mode,
+            target: screen.target,
+            minutesSpent: summary.minutesSpent,
           })
         }
       />
@@ -96,6 +120,7 @@ export function MathPractice({
   const message = pct >= 80 ? "Awesome work!" : pct >= 60 ? "Nice job!" : "Good effort!";
   const levelNote =
     screen.newLevel !== screen.startLevel ? `${domainLabels[screen.domain]} moved from level ${screen.startLevel} to ${screen.newLevel}` : undefined;
+  const wentOvertime = screen.mode === "time" && screen.minutesSpent > screen.target;
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-8 px-6 py-16 text-center">
@@ -126,6 +151,18 @@ export function MathPractice({
             <TrendingUp className="h-4 w-4 text-math" />
           )}
           {levelNote}
+        </div>
+      )}
+      {screen.mode === "time" && (
+        <div
+          className={`flex max-w-sm items-center gap-2 rounded-full border px-4 py-2 text-sm ${
+            wentOvertime ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-border bg-card"
+          }`}
+        >
+          {wentOvertime && <AlarmClock className="h-4 w-4 shrink-0" />}
+          {wentOvertime
+            ? `Went ${Math.round((screen.minutesSpent - screen.target) * 10) / 10} min over — ${screen.minutesSpent} min total`
+            : `Finished in ${screen.minutesSpent} min (target was ${screen.target})`}
         </div>
       )}
       <div className="flex w-full max-w-sm flex-col gap-3">
@@ -257,19 +294,18 @@ function MathSetupScreen({
                 </button>
               ))}
             </div>
-            <div className="flex flex-wrap gap-2">
-              {options.map((o) => (
-                <button
-                  key={o}
-                  onClick={() => setTarget(o)}
-                  className={`rounded-full border px-4 py-2 font-mono-num text-sm transition ${
-                    target === o ? "border-math bg-math text-white" : "border-border bg-card text-foreground hover:bg-secondary"
-                  }`}
-                >
-                  {o} {mode === "time" ? "min" : "qs"}
-                </button>
-              ))}
-            </div>
+            <Select value={String(target)} onValueChange={(v) => setTarget(Number(v))}>
+              <SelectTrigger className="w-40 font-mono-num">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((o) => (
+                  <SelectItem key={o} value={String(o)}>
+                    {o} {mode === "time" ? "minutes" : "questions"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <Button size="lg" className="w-full max-w-sm bg-math text-white hover:bg-math/90" onClick={() => onStart(domain, mode, target, topic)}>
@@ -304,7 +340,14 @@ function MathSessionScreen({
   mode: SessionMode;
   target: number;
   onBack: () => void;
-  onFinish: (summary: { correct: number; attempted: number; newLevel: number; pointsEarned: number; startLevel: number }) => void;
+  onFinish: (summary: {
+    correct: number;
+    attempted: number;
+    newLevel: number;
+    pointsEarned: number;
+    startLevel: number;
+    minutesSpent: number;
+  }) => void;
 }) {
   const scopedPool = useMemo(() => {
     const base = pool.filter((i) => i.domain === domain);
@@ -322,7 +365,9 @@ function MathSessionScreen({
   const [elapsedSec, setElapsedSec] = useState(0);
   const [ending, setEnding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showTimeUpBanner, setShowTimeUpBanner] = useState(false);
   const finishedRef = useRef(false);
+  const wasTimeUpRef = useRef(false);
 
   useEffect(() => {
     const t = setInterval(() => setElapsedSec((s) => s + 1), 1000);
@@ -331,6 +376,21 @@ function MathSessionScreen({
 
   const remaining = mode === "time" ? Math.max(0, target * 60 - elapsedSec) : null;
   const timeUp = mode === "time" && remaining === 0;
+  // Once the target time is reached, practice keeps going (elapsedSec keeps
+  // ticking, so the real total is still recorded when the kid finishes) —
+  // we just flip the on-screen clock into a red "overtime" count-up and
+  // flash a one-time heads-up banner, instead of forcing the session to end.
+  const overtimeSec = mode === "time" ? Math.max(0, elapsedSec - target * 60) : 0;
+
+  useEffect(() => {
+    if (timeUp && !wasTimeUpRef.current) {
+      setShowTimeUpBanner(true);
+      const t = setTimeout(() => setShowTimeUpBanner(false), 5000);
+      wasTimeUpRef.current = true;
+      return () => clearTimeout(t);
+    }
+    wasTimeUpRef.current = timeUp;
+  }, [timeUp]);
 
   async function finish(finalCorrect: number, finalAttempted: number, finalLevel: number) {
     if (finishedRef.current) return;
@@ -350,9 +410,9 @@ function MathSessionScreen({
         newLevel,
         minutesSpent,
       });
-      onFinish({ correct: finalCorrect, attempted: finalAttempted, newLevel, pointsEarned, startLevel });
+      onFinish({ correct: finalCorrect, attempted: finalAttempted, newLevel, pointsEarned, startLevel, minutesSpent });
     } catch {
-      onFinish({ correct: finalCorrect, attempted: finalAttempted, newLevel, pointsEarned: 0, startLevel });
+      onFinish({ correct: finalCorrect, attempted: finalAttempted, newLevel, pointsEarned: 0, startLevel, minutesSpent });
     }
   }
 
@@ -368,11 +428,11 @@ function MathSessionScreen({
     setLevel(nextLevel);
 
     const reachedCount = mode === "count" && nextAttempted >= target;
-    if (reachedCount || (mode === "time" && timeUp)) setEnding(true);
+    if (reachedCount) setEnding(true);
   }
 
   function next() {
-    if (ending || (mode === "time" && timeUp)) {
+    if (ending) {
       finish(correct, attempted, level);
       return;
     }
@@ -383,7 +443,11 @@ function MathSessionScreen({
   }
 
   const progressLabel =
-    mode === "time" ? `${Math.floor((remaining ?? 0) / 60)}:${String((remaining ?? 0) % 60).padStart(2, "0")} left` : `${attempted}/${target} questions`;
+    mode === "time"
+      ? timeUp
+        ? `+${formatClock(overtimeSec)}`
+        : `${formatClock(remaining ?? 0)} left`
+      : `${attempted}/${target} questions`;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -391,7 +455,16 @@ function MathSessionScreen({
         title={topic !== MIXED ? topicLabel(topic) : domainLabels[domain]}
         subtitle={`${childName} · Grade ${childGrade}`}
         onBack={onBack}
-        right={<span className="font-mono-num text-sm text-muted-foreground">{submitting ? "Saving…" : progressLabel}</span>}
+        right={
+          <span
+            className={`flex items-center gap-1 font-mono-num text-sm ${
+              mode === "time" && timeUp ? "font-semibold text-destructive" : "text-muted-foreground"
+            }`}
+          >
+            {mode === "time" && timeUp && !submitting && <AlarmClock className="h-3.5 w-3.5" />}
+            {submitting ? "Saving…" : progressLabel}
+          </span>
+        }
       />
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center gap-6 px-5 py-8 sm:px-8">
         <div className="flex items-center gap-1">
@@ -399,6 +472,13 @@ function MathSessionScreen({
             <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= level ? "bg-math" : "bg-secondary"}`} />
           ))}
         </div>
+
+        {showTimeUpBanner && (
+          <div className="flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <AlarmClock className="h-4 w-4 shrink-0" />
+            Time&apos;s up! Keep going if you&apos;d like — you can finish whenever you&apos;re ready.
+          </div>
+        )}
 
         <div className="rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
           <p className="font-mono-num text-xs text-muted-foreground">{current.code}</p>
@@ -434,9 +514,22 @@ function MathSessionScreen({
         </div>
 
         {selected !== null && (
-          <Button size="lg" className="w-full bg-math text-white hover:bg-math/90" disabled={submitting} onClick={next}>
-            {ending || (mode === "time" && timeUp) ? "See how it went" : "Next question"}
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button size="lg" className="w-full bg-math text-white hover:bg-math/90" disabled={submitting} onClick={next}>
+              {ending ? "See how it went" : "Next question"}
+            </Button>
+            {mode === "time" && timeUp && !ending && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full text-muted-foreground"
+                disabled={submitting}
+                onClick={() => finish(correct, attempted, level)}
+              >
+                Finish practicing
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </div>

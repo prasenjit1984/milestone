@@ -1,13 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUp, ArrowDown, Minus } from "lucide-react";
+import { ArrowUp, ArrowDown, Minus, AlarmClock } from "lucide-react";
 import { labelFor } from "@/lib/domains";
 import type { WeeklyRead } from "@/lib/ai/weekly-read";
 
 export interface ChildOverview {
   child: { id: string; name: string; grade: number; emoji: string };
-  sessionLog: { id: string; subject: string; domain: string; minutesSpent: number; correct: number; attempted: number; at: string }[];
+  sessionLog: {
+    id: string;
+    subject: string;
+    domain: string;
+    mode: string;
+    target: number;
+    minutesSpent: number;
+    correct: number;
+    attempted: number;
+    at: string;
+  }[];
   mastery: { subject: string; domain: string; level: number; correct: number; attempted: number }[];
   weeklyRead: WeeklyRead;
   balance: number;
@@ -42,6 +52,10 @@ export function OverviewTab({ perChild }: { perChild: ChildOverview[] }) {
   const totalWeek = Math.round(days.reduce((sum, d) => sum + (byDay[d.key] ?? 0), 0));
   const sessionCount = current.sessionLog.filter((s) => days.some((d) => d.key === s.at.slice(0, 10))).length;
   const domains = current.mastery.filter((m) => m.attempted > 0);
+  const timedAttempts = [...current.sessionLog]
+    .filter((s) => s.mode === "time")
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .slice(0, 8);
 
   return (
     <div className="space-y-8">
@@ -79,6 +93,48 @@ export function OverviewTab({ perChild }: { perChild: ChildOverview[] }) {
         <p className="mt-2 text-sm text-muted-foreground">
           {totalWeek} minutes across {sessionCount} sessions this week.
         </p>
+      </section>
+
+      <section>
+        <h3 className="mb-3 font-display text-lg font-semibold">Timed attempts</h3>
+        <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-secondary/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th className="px-4 py-2 font-medium">Domain</th>
+                <th className="px-4 py-2 font-medium">Target</th>
+                <th className="px-4 py-2 font-medium">Actual time</th>
+                <th className="px-4 py-2 font-medium">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timedAttempts.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">
+                    No timed practice sessions yet.
+                  </td>
+                </tr>
+              )}
+              {timedAttempts.map((s) => {
+                const overtime = s.minutesSpent > s.target;
+                return (
+                  <tr key={s.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2.5">{labelFor(s.subject as "math" | "reading", s.domain)}</td>
+                    <td className="px-4 py-2.5 font-mono-num text-muted-foreground">{s.target} min</td>
+                    <td className={`px-4 py-2.5 font-mono-num ${overtime ? "font-semibold text-destructive" : ""}`}>
+                      <span className="inline-flex items-center gap-1">
+                        {overtime && <AlarmClock className="h-3.5 w-3.5" />}
+                        {s.minutesSpent} min
+                        {overtime && ` (+${Math.round((s.minutesSpent - s.target) * 10) / 10})`}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{new Date(s.at).toLocaleDateString()}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section>
