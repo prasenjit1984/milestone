@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PlusCircle, Check } from "lucide-react";
+import { PdfImportPanel, type SourceDocumentSummary } from "@/components/parent/pdf-import-panel";
 
 export interface OwnMathItem {
   id: string;
@@ -26,7 +27,7 @@ type MathDomain = "NR" | "PAR" | "MDR" | "GSR";
 const DOMAINS: MathDomain[] = ["NR", "PAR", "MDR", "GSR"];
 const NEW_TOPIC = "__new__";
 
-export function ContentTab({ ownMathItems }: { ownMathItems: OwnMathItem[] }) {
+export function ContentTab({ ownMathItems, sourceDocuments }: { ownMathItems: OwnMathItem[]; sourceDocuments: SourceDocumentSummary[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [grade, setGrade] = useState("2");
@@ -88,9 +89,11 @@ export function ContentTab({ ownMathItems }: { ownMathItems: OwnMathItem[] }) {
   const bankForDomain = ownMathItems.filter((i) => i.domain === domain && i.grade === Number(grade));
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-        <h3 className="mb-4 font-display text-lg font-semibold">Add a math question</h3>
+    <div className="space-y-8">
+      <PdfImportPanel documents={sourceDocuments} />
+      <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <h3 className="mb-4 font-display text-lg font-semibold">Add a math question</h3>
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -235,6 +238,7 @@ export function ContentTab({ ownMathItems }: { ownMathItems: OwnMathItem[] }) {
           ))}
           {bankForDomain.length === 0 && <p className="text-sm text-muted-foreground">No custom questions in this domain yet — the shared question bank is still used for practice.</p>}
         </div>
+      </div>
       </div>
     </div>
   );

@@ -1,7 +1,18 @@
 import "server-only";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, count, desc, eq, gte } from "drizzle-orm";
 import { withParentContext } from "@/db";
-import { sessionLog, domainMastery, rewardEvents, rewardSettings, writingEvaluations, mathItems, readingPassages, children } from "@/db/schema";
+import {
+  sessionLog,
+  domainMastery,
+  rewardEvents,
+  rewardSettings,
+  writingEvaluations,
+  mathItems,
+  readingPassages,
+  children,
+  sourceDocuments,
+  sourceChunks,
+} from "@/db/schema";
 import { requireParentId, requireChild } from "@/lib/data/dal";
 
 export type SessionLogRow = typeof sessionLog.$inferSelect;
@@ -81,4 +92,53 @@ export async function getOwnMathItems() {
 export async function getReadingPassageTitles() {
   const parentId = await requireParentId();
   return withParentContext(parentId, (tx) => tx.select({ id: readingPassages.id, title: readingPassages.title }).from(readingPassages));
+}
+
+export interface SourceDocumentRow {
+  id: string;
+  title: string;
+  grade: number;
+  subject: string;
+  domain: string | null;
+  pageCount: number;
+  chunkCount: number;
+  embeddedChunkCount: number;
+  createdAt: Date;
+}
+
+/** Imported PDFs (docs/architecture/rag-content-pipeline.md, Stage 1) with their chunk counts, newest first. */
+export async function getSourceDocuments(): Promise<SourceDocumentRow[]> {
+  const parentId = await requireParentId();
+  return withParentContext(parentId, async (tx) => {
+    const docs = await tx.select().from(sourceDocuments).where(eq(sourceDocuments.parentId, parentId)).orderBy(desc(sourceDocuments.createdAt));
+    if (docs.length === 0) return [];
+
+    // sourceChunks has no parentId of its own — RLS scopes it via the join
+    // to sourceDocuments (see migrations/0007_source_content.sql), so this
+    // plain groupBy already only sees this parent's own chunks.
+    const chunkCounts = await tx
+      .select({
+        sourceDocumentId: sourceChunks.sourceDocumentId,
+        total: count(),
+        embedded: count(sourceChunks.embedding),
+      })
+      .from(sourceChunks)
+      .groupBy(sourceChunks.sourceDocumentId);
+    const countsById = new Map(chunkCounts.map((c) => [c.sourceDocumentId, c]));
+
+    return docs.map((d) => {
+      const c = countsById.get(d.id);
+      return {
+        id: d.id,
+        title: d.title,
+        grade: d.grade,
+        subject: d.subject,
+        domain: d.domain,
+        pageCount: d.pageCount,
+        chunkCount: c?.total ?? 0,
+        embeddedChunkCount: c?.embedded ?? 0,
+        createdAt: d.createdAt,
+      };
+    });
+  });
 }

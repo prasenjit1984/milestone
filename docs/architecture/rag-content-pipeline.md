@@ -175,8 +175,12 @@ Net addition to the existing $0–8/month target
 
 - [x] **Stage 1** — `source_documents` + `source_chunks` tables, `pgvector`
   extension enabled on Neon. See `src/db/migrations/0007_source_content.sql`.
-- [ ] **Stage 2** — Drive Picker integration + `importSourceDocument()` (extraction,
-  chunking, embedding).
+- [x] **Stage 2** — Drive Picker integration + `importSourceDocument()` (extraction,
+  chunking, embedding). See `src/components/parent/pdf-import-panel.tsx`,
+  `src/lib/actions/source-content.ts`, `src/lib/rag/pdf-extract.ts`,
+  `src/lib/rag/embeddings.ts`. Requires `NEXT_PUBLIC_GOOGLE_API_KEY` /
+  `NEXT_PUBLIC_GOOGLE_CLIENT_ID` / `VOYAGE_API_KEY` to be configured — degrades to
+  an honest "not configured yet" card in the Content tab until then.
 - [ ] **Stage 3** — `generateDraftsFromChunks()` (tag-filtered + vector-ranked
   retrieval, schema-locked Claude generation).
 - [ ] **Stage 4** — Parent Mode review queue UI (`content_drafts` table gets a

@@ -8,6 +8,7 @@ import {
   getOwnMathItems,
   getEvaluations,
   getReadingPassageTitles,
+  getSourceDocuments,
 } from "@/lib/data/dashboard";
 import { generateWeeklyRead } from "@/lib/ai/weekly-read";
 import { DashboardShell } from "@/components/parent/dashboard-shell";
@@ -47,11 +48,12 @@ export default async function ParentDashboardPage() {
     })
   );
 
-  const [rewardSettings, ownMathItems, evaluations, passages] = await Promise.all([
+  const [rewardSettings, ownMathItems, evaluations, passages, sourceDocuments] = await Promise.all([
     getRewardSettings(),
     getOwnMathItems(),
     getEvaluations(),
     getReadingPassageTitles(),
+    getSourceDocuments(),
   ]);
   const passageTitleById = Object.fromEntries(passages.map((p) => [p.id, p.title]));
 
@@ -60,6 +62,7 @@ export default async function ParentDashboardPage() {
       perChild={perChild}
       rewardSettings={rewardSettings}
       ownMathItems={ownMathItems.map((i) => ({ ...i, createdAt: i.createdAt.toISOString() }))}
+      sourceDocuments={sourceDocuments.map((d) => ({ ...d, createdAt: d.createdAt.toISOString() }))}
       evaluations={evaluations.map((e) => ({ ...e, at: e.at.toISOString() }))}
       passageTitleById={passageTitleById}
     />

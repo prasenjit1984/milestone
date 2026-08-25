@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { lockParentModeAction } from "@/lib/auth/actions";
 import { OverviewTab, type ChildOverview } from "@/components/parent/overview-tab";
 import { ContentTab, type OwnMathItem } from "@/components/parent/content-tab";
+import type { SourceDocumentSummary } from "@/components/parent/pdf-import-panel";
 import { EvaluationsTab, type EvaluationRow } from "@/components/parent/evaluations-tab";
 import { RewardsTab, type RewardSettingsData } from "@/components/parent/rewards-tab";
 import { ProfilesTab } from "@/components/parent/profiles-tab";
@@ -14,12 +15,14 @@ export function DashboardShell({
   perChild,
   rewardSettings,
   ownMathItems,
+  sourceDocuments,
   evaluations,
   passageTitleById,
 }: {
   perChild: ChildOverview[];
   rewardSettings: RewardSettingsData;
   ownMathItems: OwnMathItem[];
+  sourceDocuments: SourceDocumentSummary[];
   evaluations: EvaluationRow[];
   passageTitleById: Record<string, string>;
 }) {
@@ -57,7 +60,7 @@ export function DashboardShell({
             <OverviewTab perChild={perChild} />
           </TabsContent>
           <TabsContent value="content">
-            <ContentTab ownMathItems={ownMathItems} />
+            <ContentTab ownMathItems={ownMathItems} sourceDocuments={sourceDocuments} />
           </TabsContent>
           <TabsContent value="evaluations">
             <EvaluationsTab evaluations={evaluations} childList={children} passageTitleById={passageTitleById} />
