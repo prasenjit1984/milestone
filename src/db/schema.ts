@@ -108,6 +108,10 @@ export const readingPassages = pgTable("reading_passages", {
   grade: smallint("grade").notNull(),
   title: text("title").notNull(),
   kind: text("kind").notNull(), // 'story' | 'informational'
+  // 'fiction' | 'science' | 'geography' | 'history' | 'social-studies' —
+  // nullable so older rows (pre-dating topics) don't need a backfill to
+  // stay valid; the kid-facing picker just skips any passage without one.
+  topic: text("topic"),
   body: text("body").notNull(),
   words: integer("words").notNull(),
   mc: jsonb("mc").$type<ReadingMcQuestion[]>().notNull(),
