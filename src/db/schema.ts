@@ -9,6 +9,7 @@ import {
   jsonb,
   real,
   uniqueIndex,
+  vector,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -36,6 +37,7 @@ export const parentsRelations = relations(parents, ({ many, one }) => ({
   }),
   mathItems: many(mathItems),
   readingPassages: many(readingPassages),
+  sourceDocuments: many(sourceDocuments),
 }));
 
 // ---------------------------------------------------------------------------
@@ -236,4 +238,50 @@ export const writingEvaluations = pgTable("writing_evaluations", {
 export const writingEvaluationsRelations = relations(writingEvaluations, ({ one }) => ({
   child: one(children, { fields: [writingEvaluations.childId], references: [children.id] }),
   passage: one(readingPassages, { fields: [writingEvaluations.passageId], references: [readingPassages.id] }),
+}));
+
+// ---------------------------------------------------------------------------
+// PDF content pipeline (RAG-assisted authoring) — see
+// docs/architecture/rag-content-pipeline.md. Stage 1 only: the source-material
+// tables. content_drafts (the AI-generated review queue) lands in a later
+// migration once generation is built.
+// ---------------------------------------------------------------------------
+
+// A parent-imported PDF (picked from Google Drive via the Picker API — see
+// the architecture doc for why the `drive.file` scope keeps this narrow).
+export const sourceDocuments = pgTable("source_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  parentId: uuid("parent_id").notNull().references(() => parents.id, { onDelete: "cascade" }),
+  driveFileId: text("drive_file_id").notNull(),
+  title: text("title").notNull(),
+  grade: smallint("grade").notNull(),
+  subject: text("subject").notNull(), // 'math' | 'reading'
+  // A MathDomain code or reading topic. Nullable since a single PDF can span
+  // more than one domain/topic — chunks, not the document, carry the more
+  // precise tag once generation needs it.
+  domain: text("domain"),
+  pageCount: integer("page_count").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const sourceDocumentsRelations = relations(sourceDocuments, ({ one, many }) => ({
+  parent: one(parents, { fields: [sourceDocuments.parentId], references: [parents.id] }),
+  chunks: many(sourceChunks),
+}));
+
+// Page-level extracted text plus its embedding — the retrieval unit for
+// draft generation. voyage-4-lite output dimension (1024); embedding is
+// nullable until that call completes so extraction/chunking can be
+// verified independently of the embedding step.
+export const sourceChunks = pgTable("source_chunks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sourceDocumentId: uuid("source_document_id").notNull().references(() => sourceDocuments.id, { onDelete: "cascade" }),
+  pageRange: text("page_range").notNull(), // e.g. "4" or "4-5"
+  text: text("text").notNull(),
+  embedding: vector("embedding", { dimensions: 1024 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const sourceChunksRelations = relations(sourceChunks, ({ one }) => ({
+  sourceDocument: one(sourceDocuments, { fields: [sourceChunks.sourceDocumentId], references: [sourceDocuments.id] }),
 }));

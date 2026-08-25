@@ -20,6 +20,9 @@
   - [`architecture/decisions.md`](./architecture/decisions.md) — where the build
     deviates from the original plan's tech choices (Neon vs. Supabase, Next.js vs.
     Vite, etc.) and why.
+  - [`architecture/rag-content-pipeline.md`](./architecture/rag-content-pipeline.md) —
+    the PDF-to-draft-content pipeline: Drive import, chunking/embedding via
+    `pgvector` on Neon, AI generation, and the parent review queue.
 
 For setup instructions, the tech stack summary, and current project status, see the
 [repo root README](../README.md).

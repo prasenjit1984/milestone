@@ -83,6 +83,12 @@ kid stumbles into.
   and is available in that kid's next session.
 - The same screen lists everything already in the content bank, so a parent can edit
   or retire a question later.
+- A parent can also seed new content from their own PDF practice materials (stored in
+  Google Drive) instead of writing every question by hand: pick a file, tag it by
+  grade/subject/domain, and an AI-assisted pipeline drafts candidate questions or
+  passages grounded in that PDF's actual content for the parent to review and
+  approve — never auto-published. See
+  [`docs/architecture/rag-content-pipeline.md`](../architecture/rag-content-pipeline.md).
 
 ### 4.2 Progress dashboard
 

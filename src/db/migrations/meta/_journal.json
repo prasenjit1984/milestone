@@ -22,6 +22,13 @@
       "when": 1787607353809,
       "tag": "0004_leftover_minutes_real",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787678784426,
+      "tag": "0003_fine_maverick",
+      "breakpoints": true
     }
   ]
 }
