@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, desc, eq, gte } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
 import { withParentContext } from "@/db";
 import {
   sessionLog,
@@ -12,6 +12,7 @@ import {
   children,
   sourceDocuments,
   sourceChunks,
+  contentDrafts,
 } from "@/db/schema";
 import { requireParentId, requireChild } from "@/lib/data/dal";
 
@@ -139,6 +140,59 @@ export async function getSourceDocuments(): Promise<SourceDocumentRow[]> {
         pageCount: d.pageCount,
         chunkCount: c?.total ?? 0,
         embeddedChunkCount: c?.embedded ?? 0,
+        createdAt: d.createdAt,
+      };
+    });
+  });
+}
+
+export interface ContentDraftRow {
+  id: string;
+  kind: string; // 'math_item' | 'reading_passage'
+  payload: Record<string, unknown>;
+  status: string; // 'pending' | 'approved' | 'discarded'
+  citedPages: string[];
+  sourceTitle: string | null;
+  createdAt: Date;
+}
+
+/**
+ * AI-generated drafts (docs/architecture/rag-content-pipeline.md, Stage 3),
+ * newest first, with their source citation resolved (which PDF, which
+ * page(s)) for the review queue UI. RLS already scopes source_chunks and
+ * source_documents to this parent, same as getSourceDocuments above.
+ */
+export async function getContentDrafts(): Promise<ContentDraftRow[]> {
+  const parentId = await requireParentId();
+  return withParentContext(parentId, async (tx) => {
+    const drafts = await tx.select().from(contentDrafts).where(eq(contentDrafts.parentId, parentId)).orderBy(desc(contentDrafts.createdAt));
+    if (drafts.length === 0) return [];
+
+    const allChunkIds = Array.from(new Set(drafts.flatMap((d) => d.sourceChunkIds as string[])));
+    const chunkRows = allChunkIds.length
+      ? await tx
+          .select({ id: sourceChunks.id, pageRange: sourceChunks.pageRange, docId: sourceChunks.sourceDocumentId })
+          .from(sourceChunks)
+          .where(inArray(sourceChunks.id, allChunkIds))
+      : [];
+    const chunkById = new Map(chunkRows.map((c) => [c.id, c]));
+
+    const docIds = Array.from(new Set(chunkRows.map((c) => c.docId)));
+    const docRows = docIds.length
+      ? await tx.select({ id: sourceDocuments.id, title: sourceDocuments.title }).from(sourceDocuments).where(inArray(sourceDocuments.id, docIds))
+      : [];
+    const titleByDocId = new Map(docRows.map((d) => [d.id, d.title]));
+
+    return drafts.map((d) => {
+      const chunkIds = d.sourceChunkIds as string[];
+      const resolvedChunks = chunkIds.map((id) => chunkById.get(id)).filter((c): c is NonNullable<typeof c> => Boolean(c));
+      return {
+        id: d.id,
+        kind: d.kind,
+        payload: d.payload as Record<string, unknown>,
+        status: d.status,
+        citedPages: resolvedChunks.map((c) => c.pageRange),
+        sourceTitle: resolvedChunks[0] ? (titleByDocId.get(resolvedChunks[0].docId) ?? null) : null,
         createdAt: d.createdAt,
       };
     });

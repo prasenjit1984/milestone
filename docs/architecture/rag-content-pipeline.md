@@ -190,10 +190,24 @@ Net addition to the existing $0–8/month target
   capped at 4MB (`src/lib/rag/limits.ts` — Vercel Functions' hard request-body
   ceiling). Both paths converge on the same extraction/chunking/embedding
   pipeline and `source_documents` table (`source` column distinguishes them).
-- [ ] **Stage 3** — `generateDraftsFromChunks()` (tag-filtered + vector-ranked
-  retrieval, schema-locked Claude generation).
-- [ ] **Stage 4** — Parent Mode review queue UI (`content_drafts` table gets a
-  home in the Content tab: approve/edit/discard).
+- [x] **Stage 3** — `generateDraftsFromChunks()` (tag-filtered + vector-ranked
+  retrieval when a document has embeddings and a topic is given, schema-locked
+  Claude generation) plus the review queue UI, shipped together since a draft
+  is useless without somewhere to approve it. See
+  `src/lib/actions/content-drafts.ts`, `src/lib/rag/generate.ts`,
+  `src/components/parent/draft-review-panel.tsx`,
+  `src/db/migrations/0009_content_drafts.sql`. A parent picks one imported PDF
+  (math or reading), an optional topic, and a count; Claude drafts new
+  questions/passages grounded in that PDF's text (never copied verbatim) and
+  they land in `content_drafts` with status `pending`. The review queue shows
+  each draft with its page citation — Approve copies it into `math_items` /
+  `reading_passages` with this family's `parentId` (never touched until
+  then); Discard marks it `discarded`. Inline editing before approval isn't
+  built yet — v1 is approve-as-generated or discard; a parent who wants
+  changes can discard and regenerate, or add the edited version by hand via
+  "Add a math question" above. Requires `ANTHROPIC_API_KEY` — degrades to a
+  clear error (not a faked draft) if it's unset, matching every other AI call
+  in this app.
 
 Each stage is independently useful — Stage 1 + 2 alone produce a searchable, tagged
 library of source material a parent could browse even before Stage 3's AI generation

@@ -7,6 +7,7 @@ import { lockParentModeAction } from "@/lib/auth/actions";
 import { OverviewTab, type ChildOverview } from "@/components/parent/overview-tab";
 import { ContentTab, type OwnMathItem } from "@/components/parent/content-tab";
 import type { SourceDocumentSummary } from "@/components/parent/pdf-import-panel";
+import type { ContentDraftSummary } from "@/components/parent/draft-review-panel";
 import { EvaluationsTab, type EvaluationRow } from "@/components/parent/evaluations-tab";
 import { RewardsTab, type RewardSettingsData } from "@/components/parent/rewards-tab";
 import { ProfilesTab } from "@/components/parent/profiles-tab";
@@ -16,6 +17,7 @@ export function DashboardShell({
   rewardSettings,
   ownMathItems,
   sourceDocuments,
+  contentDrafts,
   evaluations,
   passageTitleById,
   nonce,
@@ -24,6 +26,7 @@ export function DashboardShell({
   rewardSettings: RewardSettingsData;
   ownMathItems: OwnMathItem[];
   sourceDocuments: SourceDocumentSummary[];
+  contentDrafts: ContentDraftSummary[];
   evaluations: EvaluationRow[];
   passageTitleById: Record<string, string>;
   nonce?: string;
@@ -62,7 +65,7 @@ export function DashboardShell({
             <OverviewTab perChild={perChild} />
           </TabsContent>
           <TabsContent value="content">
-            <ContentTab ownMathItems={ownMathItems} sourceDocuments={sourceDocuments} nonce={nonce} />
+            <ContentTab ownMathItems={ownMathItems} sourceDocuments={sourceDocuments} contentDrafts={contentDrafts} nonce={nonce} />
           </TabsContent>
           <TabsContent value="evaluations">
             <EvaluationsTab evaluations={evaluations} childList={children} passageTitleById={passageTitleById} />

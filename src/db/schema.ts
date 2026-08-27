@@ -38,6 +38,7 @@ export const parentsRelations = relations(parents, ({ many, one }) => ({
   mathItems: many(mathItems),
   readingPassages: many(readingPassages),
   sourceDocuments: many(sourceDocuments),
+  contentDrafts: many(contentDrafts),
 }));
 
 // ---------------------------------------------------------------------------
@@ -242,9 +243,10 @@ export const writingEvaluationsRelations = relations(writingEvaluations, ({ one 
 
 // ---------------------------------------------------------------------------
 // PDF content pipeline (RAG-assisted authoring) — see
-// docs/architecture/rag-content-pipeline.md. Stage 1 only: the source-material
-// tables. content_drafts (the AI-generated review queue) lands in a later
-// migration once generation is built.
+// docs/architecture/rag-content-pipeline.md. source_documents/source_chunks
+// (Stage 1) hold the imported material; content_drafts (Stage 3, below) is
+// the AI-generated review queue sitting between them and the live
+// math_items/reading_passages tables.
 // ---------------------------------------------------------------------------
 
 // A parent-imported PDF — either picked from Google Drive via the Picker API
@@ -289,4 +291,24 @@ export const sourceChunks = pgTable("source_chunks", {
 
 export const sourceChunksRelations = relations(sourceChunks, ({ one }) => ({
   sourceDocument: one(sourceDocuments, { fields: [sourceChunks.sourceDocumentId], references: [sourceDocuments.id] }),
+}));
+
+// AI-generated candidates awaiting parent review (Stage 3). `payload` matches
+// the target table's insertable shape exactly (see generateDraftsFromChunks
+// in src/lib/actions/content-drafts.ts for the exact fields per kind) so
+// approving a draft is a straight copy into math_items/reading_passages —
+// nothing here is ever visible to a kid's practice session directly.
+export const contentDrafts = pgTable("content_drafts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  parentId: uuid("parent_id").notNull().references(() => parents.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(), // 'math_item' | 'reading_passage'
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  sourceChunkIds: jsonb("source_chunk_ids").$type<string[]>().notNull(),
+  status: text("status").notNull().default("pending"), // 'pending' | 'approved' | 'discarded'
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+});
+
+export const contentDraftsRelations = relations(contentDrafts, ({ one }) => ({
+  parent: one(parents, { fields: [contentDrafts.parentId], references: [parents.id] }),
 }));

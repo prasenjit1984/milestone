@@ -21,7 +21,7 @@ interface VoyageEmbeddingResponse {
  * retrieval keeps working) before a Voyage key is ever set up, matching how
  * ANTHROPIC_API_KEY degrades in src/lib/ai/evaluate.ts.
  */
-export async function embedTexts(texts: string[]): Promise<(number[] | null)[]> {
+export async function embedTexts(texts: string[], inputType: "document" | "query" = "document"): Promise<(number[] | null)[]> {
   if (texts.length === 0) return [];
 
   const apiKey = process.env.VOYAGE_API_KEY;
@@ -40,7 +40,7 @@ export async function embedTexts(texts: string[]): Promise<(number[] | null)[]> 
       body: JSON.stringify({
         input: texts,
         model: MODEL,
-        input_type: "document",
+        input_type: inputType,
         output_dimension: DIMENSIONS,
       }),
     });
@@ -63,4 +63,17 @@ export async function embedTexts(texts: string[]): Promise<(number[] | null)[]> 
     console.error("[rag/embeddings] Voyage embedding call failed — continuing without embeddings for this import:", err);
     return texts.map(() => null);
   }
+}
+
+/**
+ * Embeds one search string with Voyage's "query" input_type — Voyage
+ * recommends the asymmetric document/query pair for retrieval rather than
+ * embedding both sides the same way (see embedTexts, used on the storage
+ * side). Used by generateDraftsFromChunks to rank a document's chunks by
+ * relevance to a parent-typed topic. Null under the same degradation
+ * conditions as embedTexts (no key configured, or the call fails).
+ */
+export async function embedQuery(text: string): Promise<number[] | null> {
+  const [result] = await embedTexts([text], "query");
+  return result ?? null;
 }

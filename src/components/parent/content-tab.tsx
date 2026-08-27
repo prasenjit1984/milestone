@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PlusCircle, Check } from "lucide-react";
 import { PdfImportPanel, type SourceDocumentSummary } from "@/components/parent/pdf-import-panel";
+import { DraftReviewPanel, type ContentDraftSummary } from "@/components/parent/draft-review-panel";
 
 export interface OwnMathItem {
   id: string;
@@ -30,10 +31,12 @@ const NEW_TOPIC = "__new__";
 export function ContentTab({
   ownMathItems,
   sourceDocuments,
+  contentDrafts,
   nonce,
 }: {
   ownMathItems: OwnMathItem[];
   sourceDocuments: SourceDocumentSummary[];
+  contentDrafts: ContentDraftSummary[];
   nonce?: string;
 }) {
   const router = useRouter();
@@ -99,6 +102,7 @@ export function ContentTab({
   return (
     <div className="space-y-8">
       <PdfImportPanel documents={sourceDocuments} nonce={nonce} />
+      <DraftReviewPanel documents={sourceDocuments} drafts={contentDrafts} />
       <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <h3 className="mb-4 font-display text-lg font-semibold">Add a math question</h3>
