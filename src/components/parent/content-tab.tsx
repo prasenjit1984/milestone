@@ -27,7 +27,15 @@ type MathDomain = "NR" | "PAR" | "MDR" | "GSR";
 const DOMAINS: MathDomain[] = ["NR", "PAR", "MDR", "GSR"];
 const NEW_TOPIC = "__new__";
 
-export function ContentTab({ ownMathItems, sourceDocuments }: { ownMathItems: OwnMathItem[]; sourceDocuments: SourceDocumentSummary[] }) {
+export function ContentTab({
+  ownMathItems,
+  sourceDocuments,
+  nonce,
+}: {
+  ownMathItems: OwnMathItem[];
+  sourceDocuments: SourceDocumentSummary[];
+  nonce?: string;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [grade, setGrade] = useState("2");
@@ -90,7 +98,7 @@ export function ContentTab({ ownMathItems, sourceDocuments }: { ownMathItems: Ow
 
   return (
     <div className="space-y-8">
-      <PdfImportPanel documents={sourceDocuments} />
+      <PdfImportPanel documents={sourceDocuments} nonce={nonce} />
       <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <h3 className="mb-4 font-display text-lg font-semibold">Add a math question</h3>

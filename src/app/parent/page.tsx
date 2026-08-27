@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { requireParentModeUnlocked, listChildren } from "@/lib/data/dal";
 import {
   getSessionLog,
@@ -57,6 +58,10 @@ export default async function ParentDashboardPage() {
   ]);
   const passageTitleById = Object.fromEntries(passages.map((p) => [p.id, p.title]));
 
+  // Threaded down to PdfImportPanel's two Google <Script> tags — see the
+  // frame-src/connect-src comment in proxy.ts for why they need it.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <DashboardShell
       perChild={perChild}
@@ -65,6 +70,7 @@ export default async function ParentDashboardPage() {
       sourceDocuments={sourceDocuments.map((d) => ({ ...d, createdAt: d.createdAt.toISOString() }))}
       evaluations={evaluations.map((e) => ({ ...e, at: e.at.toISOString() }))}
       passageTitleById={passageTitleById}
+      nonce={nonce}
     />
   );
 }

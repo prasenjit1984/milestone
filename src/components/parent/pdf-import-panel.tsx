@@ -67,7 +67,7 @@ export interface SourceDocumentSummary {
   createdAt: string;
 }
 
-export function PdfImportPanel({ documents }: { documents: SourceDocumentSummary[] }) {
+export function PdfImportPanel({ documents, nonce }: { documents: SourceDocumentSummary[]; nonce?: string }) {
   const router = useRouter();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -182,8 +182,21 @@ export function PdfImportPanel({ documents }: { documents: SourceDocumentSummary
         </div>
       ) : (
         <>
-          <Script src="https://apis.google.com/js/api.js" strategy="afterInteractive" onLoad={() => setScriptsReady((s) => ({ ...s, gapi: true }))} />
-          <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={() => setScriptsReady((s) => ({ ...s, gis: true }))} />
+          {/* nonce is required here: our CSP's script-src relies on 'strict-dynamic',
+              which ignores host allowlists and trusts only nonce-carrying (or
+              already-trusted-script-injected) scripts — see proxy.ts. */}
+          <Script
+            src="https://apis.google.com/js/api.js"
+            strategy="afterInteractive"
+            nonce={nonce}
+            onLoad={() => setScriptsReady((s) => ({ ...s, gapi: true }))}
+          />
+          <Script
+            src="https://accounts.google.com/gsi/client"
+            strategy="afterInteractive"
+            nonce={nonce}
+            onLoad={() => setScriptsReady((s) => ({ ...s, gis: true }))}
+          />
 
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">

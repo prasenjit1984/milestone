@@ -18,6 +18,7 @@ export function DashboardShell({
   sourceDocuments,
   evaluations,
   passageTitleById,
+  nonce,
 }: {
   perChild: ChildOverview[];
   rewardSettings: RewardSettingsData;
@@ -25,6 +26,7 @@ export function DashboardShell({
   sourceDocuments: SourceDocumentSummary[];
   evaluations: EvaluationRow[];
   passageTitleById: Record<string, string>;
+  nonce?: string;
 }) {
   const children = perChild.map((c) => c.child);
 
@@ -60,7 +62,7 @@ export function DashboardShell({
             <OverviewTab perChild={perChild} />
           </TabsContent>
           <TabsContent value="content">
-            <ContentTab ownMathItems={ownMathItems} sourceDocuments={sourceDocuments} />
+            <ContentTab ownMathItems={ownMathItems} sourceDocuments={sourceDocuments} nonce={nonce} />
           </TabsContent>
           <TabsContent value="evaluations">
             <EvaluationsTab evaluations={evaluations} childList={children} passageTitleById={passageTitleById} />
