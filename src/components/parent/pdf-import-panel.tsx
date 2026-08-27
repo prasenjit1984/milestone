@@ -33,6 +33,7 @@ interface GoogleDocsView {
 }
 interface GooglePickerBuilder {
   setDeveloperKey: (key: string) => GooglePickerBuilder;
+  setAppId: (appId: string) => GooglePickerBuilder;
   setOAuthToken: (token: string) => GooglePickerBuilder;
   addView: (view: GoogleDocsView) => GooglePickerBuilder;
   setCallback: (cb: (data: Record<string, unknown>) => void) => GooglePickerBuilder;
@@ -112,9 +113,16 @@ export function PdfImportPanel({ documents, nonce }: { documents: SourceDocument
   const openPicker = useCallback(
     (accessToken: string, picked: { grade: 2 | 4; subject: "math" | "reading"; domain: string }) => {
       if (!window.google || !apiKey) return;
+      // OAuth client IDs are minted as "<cloud-project-number>-<random>.apps.googleusercontent.com",
+      // and setAppId wants that project number. Without it, the picker still
+      // lets a parent browse and pick a file, but the drive.file scope grant
+      // never actually attaches to that file — the later files.get download
+      // 404s even though the token itself is valid.
+      const appId = clientId?.split("-")[0];
       const view = new window.google.picker.DocsView().setMimeTypes("application/pdf");
       const picker = new window.google.picker.PickerBuilder()
         .setDeveloperKey(apiKey)
+        .setAppId(appId ?? "")
         .setOAuthToken(accessToken)
         .addView(view)
         .setCallback((data) => {
@@ -129,7 +137,7 @@ export function PdfImportPanel({ documents, nonce }: { documents: SourceDocument
         .build();
       picker.setVisible(true);
     },
-    [apiKey, runImport]
+    [apiKey, clientId, runImport]
   );
 
   useEffect(() => {
