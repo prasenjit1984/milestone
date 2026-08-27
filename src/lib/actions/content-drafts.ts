@@ -24,6 +24,15 @@ export type GenerateDraftsInput = z.infer<typeof GenerateDraftsSchema>;
 
 export interface GenerateDraftsResult {
   created: number;
+  // Set instead of throwing on any failure below (missing document, missing
+  // domain tag, no extractable text, or a failed/unconfigured Claude call).
+  // Next.js redacts a thrown Server Action error down to an opaque "Minified
+  // React error #441" on the client in production (confirmed the hard way —
+  // see the setAppId/CSP debugging in docs/architecture/rag-content-pipeline.md's
+  // history), so every expected failure path here returns data instead of
+  // throwing, and the caller shows `error` directly rather than relying on a
+  // caught exception's message.
+  error?: string;
 }
 
 /**
@@ -39,7 +48,8 @@ export async function generateDraftsFromChunks(input: GenerateDraftsInput): Prom
   const parentId = await requireParentModeUnlocked();
   const parsed = GenerateDraftsSchema.parse(input);
 
-  return withParentContext(parentId, async (tx) => {
+  try {
+    return await withParentContext(parentId, async (tx) => {
     const [doc] = await tx.select().from(sourceDocuments).where(eq(sourceDocuments.id, parsed.sourceDocumentId));
     if (!doc) throw new Error("That source document wasn't found.");
 
@@ -100,7 +110,11 @@ export async function generateDraftsFromChunks(input: GenerateDraftsInput): Prom
 
     await tx.insert(contentDrafts).values(rows);
     return { created: rows.length };
-  });
+    });
+  } catch (err) {
+    console.error("[actions/content-drafts] generateDraftsFromChunks failed:", err);
+    return { created: 0, error: err instanceof Error ? err.message : "Couldn't generate drafts — please try again." };
+  }
 }
 
 const MathDraftPayloadSchema = z.object({
@@ -146,6 +160,13 @@ const ReadingDraftPayloadSchema = z.object({
 
 const ReviewActionSchema = z.enum(["approve", "discard"]);
 
+export interface ReviewDraftResult {
+  ok: boolean;
+  // See the comment on GenerateDraftsResult.error — same reasoning: return
+  // failures as data so the client's error message isn't redacted away.
+  error?: string;
+}
+
 /**
  * Approve copies the draft's payload into the live math_items/reading_passages
  * table (parentId = this family, same as a manually-authored custom
@@ -154,12 +175,13 @@ const ReviewActionSchema = z.enum(["approve", "discard"]);
  * new row, and payload is re-validated here (not just trusted from the DB)
  * before it ever reaches a kid-visible table.
  */
-export async function reviewContentDraft(id: string, action: "approve" | "discard"): Promise<void> {
+export async function reviewContentDraft(id: string, action: "approve" | "discard"): Promise<ReviewDraftResult> {
   const parentId = await requireParentModeUnlocked();
   const parsedId = z.string().trim().uuid().parse(id);
   const parsedAction = ReviewActionSchema.parse(action);
 
-  await withParentContext(parentId, async (tx) => {
+  try {
+    await withParentContext(parentId, async (tx) => {
     const [draft] = await tx.select().from(contentDrafts).where(eq(contentDrafts.id, parsedId));
     if (!draft) throw new Error("That draft wasn't found.");
     if (draft.status !== "pending") throw new Error("That draft was already reviewed.");
@@ -202,5 +224,10 @@ export async function reviewContentDraft(id: string, action: "approve" | "discar
     }
 
     await tx.update(contentDrafts).set({ status: "approved", reviewedAt: new Date() }).where(eq(contentDrafts.id, parsedId));
-  });
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error("[actions/content-drafts] reviewContentDraft failed:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Couldn't save that review — please try again." };
+  }
 }

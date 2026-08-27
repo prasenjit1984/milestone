@@ -38,6 +38,7 @@ export function DraftReviewPanel({ documents, drafts }: { documents: SourceDocum
   const [genError, setGenError] = useState<string | null>(null);
   const [genMessage, setGenMessage] = useState<string | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const pending = drafts.filter((d) => d.status === "pending");
   const currentDoc = eligibleDocs.find((d) => d.id === sourceDocumentId) ?? eligibleDocs[0];
@@ -50,21 +51,26 @@ export function DraftReviewPanel({ documents, drafts }: { documents: SourceDocum
       return;
     }
     startTransition(async () => {
-      try {
-        const result = await generateDraftsFromChunks({ sourceDocumentId, count: Number(count), topic: topic.trim() || undefined });
-        setGenMessage(`Generated ${result.created} draft${result.created === 1 ? "" : "s"} — review ${result.created === 1 ? "it" : "them"} below.`);
-        router.refresh();
-      } catch (err) {
-        setGenError(err instanceof Error ? err.message : "Couldn't generate drafts — please try again.");
+      const result = await generateDraftsFromChunks({ sourceDocumentId, count: Number(count), topic: topic.trim() || undefined });
+      if (result.error) {
+        setGenError(result.error);
+        return;
       }
+      setGenMessage(`Generated ${result.created} draft${result.created === 1 ? "" : "s"} — review ${result.created === 1 ? "it" : "them"} below.`);
+      router.refresh();
     });
   }
 
   function review(id: string, action: "approve" | "discard") {
     setReviewingId(id);
+    setReviewError(null);
     startTransition(async () => {
       try {
-        await reviewContentDraft(id, action);
+        const result = await reviewContentDraft(id, action);
+        if (result.error) {
+          setReviewError(result.error);
+          return;
+        }
         router.refresh();
       } finally {
         setReviewingId(null);
@@ -139,6 +145,7 @@ export function DraftReviewPanel({ documents, drafts }: { documents: SourceDocum
 
       <div>
         <h3 className="mb-3 font-display text-lg font-semibold">Review AI-generated content{pending.length > 0 ? ` (${pending.length})` : ""}</h3>
+        {reviewError && <p className="mb-3 text-sm text-destructive">{reviewError}</p>}
         {pending.length === 0 ? (
           <p className="text-sm text-muted-foreground">No drafts waiting for review.</p>
         ) : (
