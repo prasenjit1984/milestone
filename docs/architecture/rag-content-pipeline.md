@@ -97,13 +97,15 @@ extend.
 
 ### `source_documents`
 
-The imported PDF's metadata — one row per Drive file a parent has picked.
+The imported PDF's metadata — one row per file a parent has imported, either
+picked from Drive or uploaded straight from their computer.
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid, PK | |
 | `parent_id` | uuid, FK → `parents.id`, cascade delete | |
-| `drive_file_id` | text | Google Drive's file id, for re-fetching if ever needed |
+| `drive_file_id` | text, nullable | Google Drive's file id, for re-fetching if ever needed; null when `source = 'upload'` |
+| `source` | text | `drive` \| `upload` |
 | `title` | text | the PDF's filename/title |
 | `grade` | smallint | parent-assigned at import |
 | `subject` | text | `math` \| `reading` — parent-assigned at import |
@@ -181,6 +183,13 @@ Net addition to the existing $0–8/month target
   `src/lib/rag/embeddings.ts`. Requires `NEXT_PUBLIC_GOOGLE_API_KEY` /
   `NEXT_PUBLIC_GOOGLE_CLIENT_ID` / `VOYAGE_API_KEY` to be configured — degrades to
   an honest "not configured yet" card in the Content tab until then.
+  A second import path needs no Google configuration at all: drag-and-drop
+  (single file, or a whole dropped folder) or a Browse files/Browse folder
+  button uploads PDFs straight from the parent's computer via
+  `importUploadedSourceDocument()`, one Server Action call per file, each
+  capped at 4MB (`src/lib/rag/limits.ts` — Vercel Functions' hard request-body
+  ceiling). Both paths converge on the same extraction/chunking/embedding
+  pipeline and `source_documents` table (`source` column distinguishes them).
 - [ ] **Stage 3** — `generateDraftsFromChunks()` (tag-filtered + vector-ranked
   retrieval, schema-locked Claude generation).
 - [ ] **Stage 4** — Parent Mode review queue UI (`content_drafts` table gets a

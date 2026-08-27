@@ -100,6 +100,7 @@ export interface SourceDocumentRow {
   grade: number;
   subject: string;
   domain: string | null;
+  source: string; // 'drive' | 'upload'
   pageCount: number;
   chunkCount: number;
   embeddedChunkCount: number;
@@ -134,6 +135,7 @@ export async function getSourceDocuments(): Promise<SourceDocumentRow[]> {
         grade: d.grade,
         subject: d.subject,
         domain: d.domain,
+        source: d.source,
         pageCount: d.pageCount,
         chunkCount: c?.total ?? 0,
         embeddedChunkCount: c?.embedded ?? 0,

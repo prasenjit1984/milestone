@@ -247,12 +247,17 @@ export const writingEvaluationsRelations = relations(writingEvaluations, ({ one 
 // migration once generation is built.
 // ---------------------------------------------------------------------------
 
-// A parent-imported PDF (picked from Google Drive via the Picker API — see
-// the architecture doc for why the `drive.file` scope keeps this narrow).
+// A parent-imported PDF — either picked from Google Drive via the Picker API
+// (see the architecture doc for why the `drive.file` scope keeps this
+// narrow) or uploaded straight from the parent's computer.
 export const sourceDocuments = pgTable("source_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   parentId: uuid("parent_id").notNull().references(() => parents.id, { onDelete: "cascade" }),
-  driveFileId: text("drive_file_id").notNull(),
+  // Null for an uploaded file (source = 'upload') — there's no Drive file to
+  // point at.
+  driveFileId: text("drive_file_id"),
+  // 'drive' | 'upload'
+  source: text("source").notNull().default("drive"),
   title: text("title").notNull(),
   grade: smallint("grade").notNull(),
   subject: text("subject").notNull(), // 'math' | 'reading'
