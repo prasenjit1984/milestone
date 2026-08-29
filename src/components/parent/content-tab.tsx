@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { PlusCircle, Check } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { PlusCircle, Check, Upload, Sparkles, PencilLine } from "lucide-react";
 import { PdfImportPanel, type SourceDocumentSummary } from "@/components/parent/pdf-import-panel";
 import { DraftReviewPanel, type ContentDraftSummary } from "@/components/parent/draft-review-panel";
 
@@ -100,12 +101,34 @@ export function ContentTab({
   const bankForDomain = ownMathItems.filter((i) => i.domain === domain && i.grade === Number(grade));
 
   return (
-    <div className="space-y-8">
-      <PdfImportPanel documents={sourceDocuments} nonce={nonce} />
-      <DraftReviewPanel documents={sourceDocuments} drafts={contentDrafts} />
+    <Tabs defaultValue="import" className="w-full">
+      <TabsList className="mb-6 inline-flex w-auto justify-start gap-1 bg-secondary/60 p-1">
+        <TabsTrigger value="import" className="gap-1.5">
+          <Upload className="h-3.5 w-3.5" />
+          Import
+        </TabsTrigger>
+        <TabsTrigger value="generate" className="gap-1.5">
+          <Sparkles className="h-3.5 w-3.5" />
+          Generate questions
+        </TabsTrigger>
+        <TabsTrigger value="manual" className="gap-1.5">
+          <PencilLine className="h-3.5 w-3.5" />
+          Add manually
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="import">
+        <PdfImportPanel documents={sourceDocuments} nonce={nonce} />
+      </TabsContent>
+
+      <TabsContent value="generate">
+        <DraftReviewPanel documents={sourceDocuments} drafts={contentDrafts} />
+      </TabsContent>
+
+      <TabsContent value="manual" className="space-y-8">
       <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <h3 className="mb-4 font-display text-lg font-semibold">Add a math question</h3>
+          <h3 className="mb-4 font-display text-lg font-semibold">Add a question manually</h3>
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -252,6 +275,7 @@ export function ContentTab({
         </div>
       </div>
       </div>
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }
