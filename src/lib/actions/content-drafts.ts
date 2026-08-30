@@ -1,26 +1,26 @@
 "use server";
 
 import { z } from "zod";
-import { and, cosineDistance, eq, isNotNull } from "drizzle-orm";
-import { contentDrafts, mathItems, readingPassages, sourceChunks, sourceDocuments } from "@/db/schema";
+import { eq, inArray } from "drizzle-orm";
+import { contentDrafts, mathItems, readingPassages, sourceChunks, sourceDocuments, sourceTopics } from "@/db/schema";
 import { withParentContext } from "@/db";
 import { requireParentModeUnlocked } from "@/lib/data/dal";
-import { embedQuery } from "@/lib/rag/embeddings";
 import { generateMathDrafts, generateReadingDrafts, type GeneratedMathDraft, type GeneratedReadingDraft } from "@/lib/rag/generate";
 
-// Keep the prompt bounded regardless of how many/how large the selected
-// chunks are — a handful of workbook pages is plenty of grounding material
-// and keeps generation calls fast and cheap.
-const MAX_CHUNKS = 6;
+// Keep the prompt bounded regardless of how many/how large a topic's chunks
+// are — a handful of workbook pages is plenty of grounding material and
+// keeps generation calls fast and cheap.
 const MAX_SOURCE_TEXT_CHARS = 16000;
 
-const GenerateDraftsSchema = z.object({
+const GenerateFromTopicsSchema = z.object({
   sourceDocumentId: z.string().trim().uuid(),
-  count: z.number().int().min(1).max(10).default(5),
-  topic: z.string().trim().max(200).optional(),
+  topicIds: z.array(z.string().trim().uuid()).min(1).max(12),
+  // Total drafts across every selected topic, not per topic — split as
+  // evenly as possible below (see generateDraftsFromTopics).
+  count: z.number().int().min(1).max(30).default(6),
 });
 
-export type GenerateDraftsInput = z.infer<typeof GenerateDraftsSchema>;
+export type GenerateFromTopicsInput = z.infer<typeof GenerateFromTopicsSchema>;
 
 export interface GenerateDraftsResult {
   created: number;
@@ -37,82 +37,88 @@ export interface GenerateDraftsResult {
 
 /**
  * Stage 3 of the PDF pipeline (docs/architecture/rag-content-pipeline.md):
- * pick a document's chunks (tag-filtered by the document's own grade/subject/
- * domain, optionally similarity-ranked against a parent-typed topic), hand
- * them to Claude with a schema-locked prompt (src/lib/rag/generate.ts), and
- * store the results as pending content_drafts rows for the review queue
- * below. Nothing here touches math_items/reading_passages directly — that
+ * a parent picks one or more entries from a document's extracted "table of
+ * contents" (src/lib/actions/source-topics.ts), and this generates drafts
+ * grounded specifically in each topic's own cited chunks — no similarity
+ * guesswork, since the topic already resolved exactly which pages it covers.
+ * The requested count is split as evenly as possible across the selected
+ * topics. Stores results as pending content_drafts rows for the review queue
+ * below; nothing here touches math_items/reading_passages directly — that
  * only happens on approve (reviewContentDraft).
  */
-export async function generateDraftsFromChunks(input: GenerateDraftsInput): Promise<GenerateDraftsResult> {
+export async function generateDraftsFromTopics(input: GenerateFromTopicsInput): Promise<GenerateDraftsResult> {
   const parentId = await requireParentModeUnlocked();
-  const parsed = GenerateDraftsSchema.parse(input);
+  const parsed = GenerateFromTopicsSchema.parse(input);
 
   try {
     return await withParentContext(parentId, async (tx) => {
-    const [doc] = await tx.select().from(sourceDocuments).where(eq(sourceDocuments.id, parsed.sourceDocumentId));
-    if (!doc) throw new Error("That source document wasn't found.");
+      const [doc] = await tx.select().from(sourceDocuments).where(eq(sourceDocuments.id, parsed.sourceDocumentId));
+      if (!doc) throw new Error("That source document wasn't found.");
 
-    if (doc.subject === "math" && !doc.domain) {
-      throw new Error(`"${doc.title}" wasn't tagged with a domain at import — delete and re-import it with a domain set to generate math questions from it.`);
-    }
+      if (doc.subject === "math" && !doc.domain) {
+        throw new Error(`"${doc.title}" wasn't tagged with a domain at import — delete and re-import it with a domain set to generate math questions from it.`);
+      }
 
-    // Rank by similarity to the parent's topic when both a topic was given
-    // and this document actually has embedded chunks (Voyage configured and
-    // succeeded at import time); otherwise fall back to page order, capped.
-    let chunks: { id: string; pageRange: string; text: string }[] = [];
-    const queryEmbedding = parsed.topic ? await embedQuery(parsed.topic) : null;
-    if (queryEmbedding) {
-      chunks = await tx
-        .select({ id: sourceChunks.id, pageRange: sourceChunks.pageRange, text: sourceChunks.text })
-        .from(sourceChunks)
-        .where(and(eq(sourceChunks.sourceDocumentId, doc.id), isNotNull(sourceChunks.embedding)))
-        .orderBy(cosineDistance(sourceChunks.embedding, queryEmbedding))
-        .limit(MAX_CHUNKS);
-    }
-    if (chunks.length === 0) {
-      chunks = await tx
-        .select({ id: sourceChunks.id, pageRange: sourceChunks.pageRange, text: sourceChunks.text })
-        .from(sourceChunks)
-        .where(eq(sourceChunks.sourceDocumentId, doc.id))
-        .orderBy(sourceChunks.createdAt)
-        .limit(MAX_CHUNKS);
-    }
-    if (chunks.length === 0) {
-      throw new Error(`"${doc.title}" has no extracted text to generate from.`);
-    }
+      const topics = await tx.select().from(sourceTopics).where(inArray(sourceTopics.id, parsed.topicIds));
+      if (topics.length !== parsed.topicIds.length || topics.some((t) => t.sourceDocumentId !== doc.id)) {
+        throw new Error("One or more selected topics weren't found — try refreshing the page.");
+      }
 
-    const sourceText = chunks
-      .map((c) => `[page ${c.pageRange}]\n${c.text}`)
-      .join("\n\n---\n\n")
-      .slice(0, MAX_SOURCE_TEXT_CHARS);
+      // Split the requested total as evenly as possible: base count per
+      // topic, plus one extra for the first `remainder` topics so the sum
+      // always matches what was asked for (at least 1 each).
+      const n = topics.length;
+      const base = Math.max(1, Math.floor(parsed.count / n));
+      const remainder = Math.max(0, parsed.count - base * n);
 
-    const drafts: GeneratedMathDraft[] | GeneratedReadingDraft[] =
-      doc.subject === "math"
-        ? await generateMathDrafts({ grade: doc.grade, domain: doc.domain!, count: parsed.count, sourceText })
-        : await generateReadingDrafts({ grade: doc.grade, topic: doc.domain ?? parsed.topic, count: parsed.count, sourceText });
+      const kind = doc.subject === "math" ? "math_item" : "reading_passage";
+      let totalCreated = 0;
 
-    if (drafts.length === 0) throw new Error("Claude didn't return any drafts — try again, or pick a different document.");
+      for (let i = 0; i < topics.length; i++) {
+        const topic = topics[i];
+        const chunkIds = topic.chunkIds as string[];
+        const chunkRows = chunkIds.length
+          ? await tx
+              .select({ id: sourceChunks.id, pageRange: sourceChunks.pageRange, text: sourceChunks.text })
+              .from(sourceChunks)
+              .where(inArray(sourceChunks.id, chunkIds))
+          : [];
+        if (chunkRows.length === 0) continue; // e.g. chunks removed by a re-import since this topic was extracted
 
-    const chunkIds = chunks.map((c) => c.id);
-    const kind = doc.subject === "math" ? "math_item" : "reading_passage";
+        const sourceText = chunkRows
+          .map((c) => `[page ${c.pageRange}]\n${c.text}`)
+          .join("\n\n---\n\n")
+          .slice(0, MAX_SOURCE_TEXT_CHARS);
+        const countForTopic = base + (i < remainder ? 1 : 0);
 
-    const rows = drafts.map((d) => ({
-      parentId,
-      kind,
-      payload:
-        doc.subject === "math"
-          ? { grade: doc.grade, domain: doc.domain!, ...(d as GeneratedMathDraft) }
-          : { grade: doc.grade, topic: doc.domain ?? null, ...(d as GeneratedReadingDraft) },
-      sourceChunkIds: chunkIds,
-      status: "pending" as const,
-    }));
+        const drafts: GeneratedMathDraft[] | GeneratedReadingDraft[] =
+          doc.subject === "math"
+            ? await generateMathDrafts({ grade: doc.grade, domain: doc.domain!, count: countForTopic, sourceText })
+            : await generateReadingDrafts({ grade: doc.grade, topic: doc.domain ?? topic.label, count: countForTopic, sourceText });
+        if (drafts.length === 0) continue;
 
-    await tx.insert(contentDrafts).values(rows);
-    return { created: rows.length };
+        const chunkIdsForRows = chunkRows.map((c) => c.id);
+        const rows = drafts.map((d) => ({
+          parentId,
+          kind,
+          payload:
+            doc.subject === "math"
+              ? { grade: doc.grade, domain: doc.domain!, ...(d as GeneratedMathDraft) }
+              : { grade: doc.grade, topic: doc.domain ?? null, ...(d as GeneratedReadingDraft) },
+          sourceChunkIds: chunkIdsForRows,
+          status: "pending" as const,
+        }));
+        await tx.insert(contentDrafts).values(rows);
+        totalCreated += rows.length;
+      }
+
+      if (totalCreated === 0) {
+        throw new Error("Claude didn't return any drafts for the selected topics — try again, or pick different topics.");
+      }
+      return { created: totalCreated };
     });
   } catch (err) {
-    console.error("[actions/content-drafts] generateDraftsFromChunks failed:", err);
+    console.error("[actions/content-drafts] generateDraftsFromTopics failed:", err);
     return { created: 0, error: err instanceof Error ? err.message : "Couldn't generate drafts — please try again." };
   }
 }

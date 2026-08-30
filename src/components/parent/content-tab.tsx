@@ -12,7 +12,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PlusCircle, Check, Upload, Sparkles, PencilLine } from "lucide-react";
 import { PdfImportPanel, type SourceDocumentSummary } from "@/components/parent/pdf-import-panel";
-import { DraftReviewPanel, type ContentDraftSummary } from "@/components/parent/draft-review-panel";
+import { DraftReviewPanel, type ContentDraftSummary, type SourceTopicSummary } from "@/components/parent/draft-review-panel";
 
 export interface OwnMathItem {
   id: string;
@@ -32,11 +32,13 @@ const NEW_TOPIC = "__new__";
 export function ContentTab({
   ownMathItems,
   sourceDocuments,
+  sourceTopics,
   contentDrafts,
   nonce,
 }: {
   ownMathItems: OwnMathItem[];
   sourceDocuments: SourceDocumentSummary[];
+  sourceTopics: SourceTopicSummary[];
   contentDrafts: ContentDraftSummary[];
   nonce?: string;
 }) {
@@ -122,7 +124,7 @@ export function ContentTab({
       </TabsContent>
 
       <TabsContent value="generate">
-        <DraftReviewPanel documents={sourceDocuments} drafts={contentDrafts} />
+        <DraftReviewPanel documents={sourceDocuments} topics={sourceTopics} drafts={contentDrafts} />
       </TabsContent>
 
       <TabsContent value="manual" className="space-y-8">

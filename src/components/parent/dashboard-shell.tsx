@@ -8,7 +8,7 @@ import { LayoutDashboard, FileText, ClipboardCheck, Gift, Users } from "lucide-r
 import { OverviewTab, type ChildOverview } from "@/components/parent/overview-tab";
 import { ContentTab, type OwnMathItem } from "@/components/parent/content-tab";
 import type { SourceDocumentSummary } from "@/components/parent/pdf-import-panel";
-import type { ContentDraftSummary } from "@/components/parent/draft-review-panel";
+import type { ContentDraftSummary, SourceTopicSummary } from "@/components/parent/draft-review-panel";
 import { EvaluationsTab, type EvaluationRow } from "@/components/parent/evaluations-tab";
 import { RewardsTab, type RewardSettingsData } from "@/components/parent/rewards-tab";
 import { ProfilesTab } from "@/components/parent/profiles-tab";
@@ -26,6 +26,7 @@ export function DashboardShell({
   rewardSettings,
   ownMathItems,
   sourceDocuments,
+  sourceTopics,
   contentDrafts,
   evaluations,
   passageTitleById,
@@ -35,6 +36,7 @@ export function DashboardShell({
   rewardSettings: RewardSettingsData;
   ownMathItems: OwnMathItem[];
   sourceDocuments: SourceDocumentSummary[];
+  sourceTopics: SourceTopicSummary[];
   contentDrafts: ContentDraftSummary[];
   evaluations: EvaluationRow[];
   passageTitleById: Record<string, string>;
@@ -81,7 +83,7 @@ export function DashboardShell({
               <OverviewTab perChild={perChild} />
             </TabsContent>
             <TabsContent value="content">
-              <ContentTab ownMathItems={ownMathItems} sourceDocuments={sourceDocuments} contentDrafts={contentDrafts} nonce={nonce} />
+              <ContentTab ownMathItems={ownMathItems} sourceDocuments={sourceDocuments} sourceTopics={sourceTopics} contentDrafts={contentDrafts} nonce={nonce} />
             </TabsContent>
             <TabsContent value="evaluations">
               <EvaluationsTab evaluations={evaluations} childList={children} passageTitleById={passageTitleById} />

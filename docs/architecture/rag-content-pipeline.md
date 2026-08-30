@@ -59,14 +59,21 @@ Server Action: importSourceDocument()
      with grade / subject / domain at import time
   │
   ▼
-Server Action: generateDraftsFromChunks()
-  ├─ filter source_chunks by the requested grade/subject/domain tags
-  ├─ optionally rank by cosine similarity (pgvector) to a topic the
-  │  parent types, e.g. "fractions word problems" — this is where
-  │  semantic search earns its keep: narrowing a tag-filtered set of
-  │  dozens of chunks down to the handful most relevant to one request
-  ├─ hand the top-K chunks to Claude with a schema-locked prompt matching
-  │  the real math_items / reading_passages column shape
+Server Action: extractTopicsForDocument()
+  ├─ on first request for a document (cached after that — see source_topics
+  │  below), hand its chunks to Claude and ask for the distinct topics/
+  │  practice scenarios actually covered — a "table of contents", not a
+  │  blind topic guess
+  └─ insert source_topics rows, each citing which source_chunk_ids it
+     covers
+  │
+  ▼
+Server Action: generateDraftsFromTopics()
+  ├─ a parent selects one or more entries from that table of contents
+  ├─ for each selected topic, hand Claude exactly the chunks it cited —
+  │  no similarity search needed, the topic already resolved which pages
+  │  matter — with a schema-locked prompt matching the real math_items /
+  │  reading_passages column shape
   └─ insert content_drafts rows, each citing the source_chunk_ids it was
      grounded in
   │
@@ -124,6 +131,23 @@ Page-level extracted text plus its embedding, the retrieval unit for generation.
 | `page_range` | text | e.g. `"4"` or `"4-5"` |
 | `text` | text | extracted chunk text |
 | `embedding` | `vector(1024)` | `voyage-4-lite` output; nullable until the embedding call completes |
+| `created_at` | timestamptz | |
+
+### `source_topics`
+
+A cached "table of contents" for one imported PDF — the distinct topics/practice
+scenarios it actually covers, extracted by Claude once (re-scan replaces these
+rows) and each citing the exact chunks it was drawn from. Lets a parent pick a
+specific scenario in the Generate tab instead of guessing a free-text topic
+against the whole document.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `source_document_id` | uuid, FK → `source_documents.id`, cascade delete | |
+| `label` | text | short scenario name, e.g. "Single-digit addition word problems" |
+| `description` | text | one sentence describing what it covers |
+| `chunk_ids` | jsonb `string[]` | which `source_chunks` this topic was drawn from |
 | `created_at` | timestamptz | |
 
 ### `content_drafts`
@@ -190,22 +214,29 @@ Net addition to the existing $0–8/month target
   capped at 4MB (`src/lib/rag/limits.ts` — Vercel Functions' hard request-body
   ceiling). Both paths converge on the same extraction/chunking/embedding
   pipeline and `source_documents` table (`source` column distinguishes them).
-- [x] **Stage 3** — `generateDraftsFromChunks()` (tag-filtered + vector-ranked
-  retrieval when a document has embeddings and a topic is given, schema-locked
-  Claude generation) plus the review queue UI, shipped together since a draft
-  is useless without somewhere to approve it. See
-  `src/lib/actions/content-drafts.ts`, `src/lib/rag/generate.ts`,
-  `src/components/parent/draft-review-panel.tsx`,
-  `src/db/migrations/0009_content_drafts.sql`. A parent picks one imported PDF
-  (math or reading), an optional topic, and a count; Claude drafts new
-  questions/passages grounded in that PDF's text (never copied verbatim) and
-  they land in `content_drafts` with status `pending`. The review queue shows
-  each draft with its page citation — Approve copies it into `math_items` /
-  `reading_passages` with this family's `parentId` (never touched until
-  then); Discard marks it `discarded`. Inline editing before approval isn't
-  built yet — v1 is approve-as-generated or discard; a parent who wants
-  changes can discard and regenerate, or add the edited version by hand via
-  "Add a math question" above. Requires `ANTHROPIC_API_KEY` — degrades to a
+- [x] **Stage 3** — `extractTopicsForDocument()` (a cached, Claude-extracted
+  table of contents per PDF — see `source_topics` above) plus
+  `generateDraftsFromTopics()` (schema-locked Claude generation grounded in
+  a selected topic's own cited chunks) and the review queue UI, shipped
+  together since a draft is useless without somewhere to approve it. See
+  `src/lib/actions/source-topics.ts`, `src/lib/actions/content-drafts.ts`,
+  `src/lib/rag/generate.ts`, `src/components/parent/draft-review-panel.tsx`,
+  `src/db/migrations/0009_content_drafts.sql`,
+  `src/db/migrations/0010_source_topics.sql`. A parent picks one imported PDF
+  (math or reading), finds (or re-scans) the topics it covers, selects one or
+  more, and sets a total question count (split evenly across the selected
+  topics); Claude drafts new questions/passages grounded in each topic's own
+  pages (never copied verbatim) and they land in `content_drafts` with status
+  `pending`. Math generation is nudged to reuse an existing topic slug from
+  the app's own catalog (`src/lib/domains.ts`) when the material genuinely
+  matches one, rather than inventing a near-duplicate — that's what actually
+  deepens a thin topic's practice pool instead of fragmenting it further. The
+  review queue shows each draft with its page citation — Approve copies it
+  into `math_items` / `reading_passages` with this family's `parentId` (never
+  touched until then); Discard marks it `discarded`. Inline editing before
+  approval isn't built yet — v1 is approve-as-generated or discard; a parent
+  who wants changes can discard and regenerate, or add the edited version by
+  hand via "Add manually" above. Requires `ANTHROPIC_API_KEY` — degrades to a
   clear error (not a faked draft) if it's unset, matching every other AI call
   in this app.
 

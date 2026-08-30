@@ -12,6 +12,7 @@ import {
   children,
   sourceDocuments,
   sourceChunks,
+  sourceTopics,
   contentDrafts,
 } from "@/db/schema";
 import { requireParentId, requireChild } from "@/lib/data/dal";
@@ -143,6 +144,45 @@ export async function getSourceDocuments(): Promise<SourceDocumentRow[]> {
         createdAt: d.createdAt,
       };
     });
+  });
+}
+
+export interface SourceTopicRow {
+  id: string;
+  sourceDocumentId: string;
+  label: string;
+  description: string;
+  pageRanges: string[];
+}
+
+/**
+ * Every already-extracted "table of contents" entry across this parent's
+ * imported PDFs (src/lib/actions/source-topics.ts), so the Generate tab can
+ * show a document's topics immediately without a round trip — the "Find
+ * topics" action only has to run for a document that has none yet.
+ */
+export async function getSourceTopics(): Promise<SourceTopicRow[]> {
+  const parentId = await requireParentId();
+  return withParentContext(parentId, async (tx) => {
+    // sourceTopics has no parentId of its own — RLS scopes it via the join
+    // to sourceDocuments (see migrations/0010_source_topics.sql), so this
+    // plain select already only sees this parent's own topics.
+    const topics = await tx.select().from(sourceTopics).orderBy(sourceTopics.createdAt);
+    if (topics.length === 0) return [];
+
+    const allChunkIds = Array.from(new Set(topics.flatMap((t) => t.chunkIds as string[])));
+    const chunkRows = allChunkIds.length
+      ? await tx.select({ id: sourceChunks.id, pageRange: sourceChunks.pageRange }).from(sourceChunks).where(inArray(sourceChunks.id, allChunkIds))
+      : [];
+    const pageById = new Map(chunkRows.map((c) => [c.id, c.pageRange]));
+
+    return topics.map((t) => ({
+      id: t.id,
+      sourceDocumentId: t.sourceDocumentId,
+      label: t.label,
+      description: t.description,
+      pageRanges: (t.chunkIds as string[]).map((id) => pageById.get(id)).filter((p): p is string => Boolean(p)),
+    }));
   });
 }
 

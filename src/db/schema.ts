@@ -274,6 +274,7 @@ export const sourceDocuments = pgTable("source_documents", {
 export const sourceDocumentsRelations = relations(sourceDocuments, ({ one, many }) => ({
   parent: one(parents, { fields: [sourceDocuments.parentId], references: [parents.id] }),
   chunks: many(sourceChunks),
+  topics: many(sourceTopics),
 }));
 
 // Page-level extracted text plus its embedding — the retrieval unit for
@@ -293,8 +294,28 @@ export const sourceChunksRelations = relations(sourceChunks, ({ one }) => ({
   sourceDocument: one(sourceDocuments, { fields: [sourceChunks.sourceDocumentId], references: [sourceDocuments.id] }),
 }));
 
+// A cached, Claude-extracted "table of contents" for one imported PDF: the
+// distinct topics/practice scenarios it actually covers (e.g. "Single-digit
+// addition word problems"), each citing which source_chunks it was drawn
+// from. Lets a parent pick a specific scenario in the Generate tab instead
+// of guessing a free-text topic — see extractTopicsForDocument in
+// src/lib/actions/source-topics.ts. Extracted once per document and cached
+// here; a parent can force a re-scan, which replaces these rows.
+export const sourceTopics = pgTable("source_topics", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sourceDocumentId: uuid("source_document_id").notNull().references(() => sourceDocuments.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  description: text("description").notNull(),
+  chunkIds: jsonb("chunk_ids").$type<string[]>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const sourceTopicsRelations = relations(sourceTopics, ({ one }) => ({
+  sourceDocument: one(sourceDocuments, { fields: [sourceTopics.sourceDocumentId], references: [sourceDocuments.id] }),
+}));
+
 // AI-generated candidates awaiting parent review (Stage 3). `payload` matches
-// the target table's insertable shape exactly (see generateDraftsFromChunks
+// the target table's insertable shape exactly (see generateDraftsFromTopics
 // in src/lib/actions/content-drafts.ts for the exact fields per kind) so
 // approving a draft is a straight copy into math_items/reading_passages —
 // nothing here is ever visible to a kid's practice session directly.
