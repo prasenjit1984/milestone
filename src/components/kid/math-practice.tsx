@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { ClockDial } from "@/components/ui/clock-dial";
 import { domainLabels, topicLabel, topicsFor } from "@/lib/domains";
 import { finishMathSession } from "@/lib/actions/math";
+import { GENERATED_MATH_TOPICS, generateFactPool, generatedTopicConfig } from "@/lib/math-facts";
 import type { MathItem } from "@/lib/data/practice";
 import { Check, X, PartyPopper, TrendingUp, TrendingDown, AlarmClock } from "lucide-react";
 
@@ -212,7 +213,20 @@ function MathSetupScreen({
   const [countTimerMin, setCountTimerMin] = useState(15);
 
   const options = mode === "time" ? TIME_OPTIONS : COUNT_OPTIONS;
-  const topics = useMemo(() => topicsFor(pool, childGrade, domain), [pool, childGrade, domain]);
+  // Curated topics (from the real math_items bank) plus any procedurally-
+  // generated fact-drill topics available for this grade/domain (see
+  // src/lib/math-facts.ts) — merged so a generated topic shows up in the
+  // picker even when the bank has no (or only a couple of legacy seed)
+  // rows tagged with it.
+  const topics = useMemo(() => {
+    const curated = topicsFor(pool, childGrade, domain);
+    const generated = GENERATED_MATH_TOPICS.filter((t) => t.domain === domain && t.grades.includes(childGrade));
+    const merged = [...curated];
+    for (const g of generated) {
+      if (!merged.some((t) => t.id === g.id)) merged.push({ id: g.id, label: g.label });
+    }
+    return merged;
+  }, [pool, childGrade, domain]);
 
   function pickDomain(d: MathDomain) {
     setDomain(d);
@@ -389,12 +403,27 @@ function MathSessionScreen({
     minutesSpent: number;
   }) => void;
 }) {
+  // A generated fact-drill pool (src/lib/math-facts.ts) is created once, the
+  // moment a session starts — lazy useState initializer, not useMemo, so
+  // "Practice again" for the same topic gets an entirely fresh random batch
+  // instead of reusing the same one (this component unmounts/remounts each
+  // time a session begins, so the initializer reruns every time).
+  const [generatedPool] = useState<MathItem[]>(() => {
+    const config = generatedTopicConfig(topic, domain);
+    return config ? generateFactPool(topic, childGrade) : [];
+  });
+
   const scopedPool = useMemo(() => {
     const base = pool.filter((i) => i.domain === domain);
     if (topic === MIXED) return base;
+    // Merge (not replace) — a generated topic's huge pool of fresh facts
+    // does the heavy lifting, but any curated or AI-approved question
+    // already tagged with the same topic (e.g. a Stage 3 draft grounded in
+    // an imported PDF) still shows up too rather than becoming unreachable.
     const filtered = base.filter((i) => i.topic === topic);
-    return filtered.length ? filtered : base;
-  }, [pool, domain, topic]);
+    const merged = [...generatedPool, ...filtered];
+    return merged.length ? merged : base;
+  }, [pool, domain, topic, generatedPool]);
 
   const [level, setLevel] = useState(startLevel);
   const [used, setUsed] = useState<Set<string>>(new Set());

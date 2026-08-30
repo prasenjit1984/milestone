@@ -19,6 +19,8 @@ export const topicLabels: Record<string, string> = {
   "add-1digit": "Addition (single-digit)",
   "sub-1digit": "Subtraction (single-digit)",
   "add-sub-2digit": "Addition & subtraction (2-digit)",
+  "mult-1digit": "Multiplication facts",
+  "div-1digit": "Division facts",
   "mult-foundations": "Multiplication foundations",
   patterns: "Patterns",
   money: "Money",
